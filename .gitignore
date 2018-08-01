@@ -1,7 +1,9 @@
-ldpc/.vs
-ldpc/x64
-ldpc/ldpc/x64
-ldpc/ldpc/*.user
-ldpc/ldpc/*.filters
+wifi/.vs
+wifi/x64
+wifi/ldpc/x64
+wifi/ldpc/*.user
+wifi
+wifi/ldpc/*.filters
+
 
 
