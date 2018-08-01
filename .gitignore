@@ -1,0 +1,7 @@
+ldpc/.vs
+ldpc/x64
+ldpc/ldpc/x64
+ldpc/ldpc/*.user
+ldpc/ldpc/*.filters
+
+
