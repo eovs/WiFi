@@ -66,9 +66,9 @@ typedef struct
     short m;
     short ns;
     short *x;
-    short **y;
-    short *z1;
-    short *z2;
+ //   short **y;
+    int *z1;
+    int *z2;
     short p[4];
 	int *dx;
 } QAM_MODULATOR_STATE;
@@ -99,10 +99,10 @@ void Permutation_Init(  PERMSTATE* state, short **hc );
 
 QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m );
 void QAM_modulator_close(QAM_MODULATOR_STATE* st);
-void QAM_modulator( QAM_MODULATOR_STATE *qam_mod_state, int *in, int *out  );
+void QAM_modulator( QAM_MODULATOR_STATE *qam_mod_state, int *in, int *out[2]  );
 
 QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, short Q, int n, int m, int ns, int out_type );
 void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st );
-void Demodulate( QAM_DEMODULATOR_STATE* st, double x[], double pRes[] );
+void Demodulate( QAM_DEMODULATOR_STATE* st, double *x[2], double pRes[] );
 
 #endif //_MODULATION_H_
