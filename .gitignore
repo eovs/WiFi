@@ -1,9 +1,8 @@
 wifi/.vs
 wifi/x64
-wifi/ldpc/x64
-wifi/ldpc/*.user
-wifi
-wifi/ldpc/*.filters
+wifi/wifi/x64
+wifi/wifi/*.user
+wifi/wifi/*.filters
 
 
 
