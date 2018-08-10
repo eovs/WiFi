@@ -24,7 +24,8 @@ enum  DEC_ID
 	FHT_DEC,
 	TASP_DEC,
 	LMS_DEC,
-	LCHE_DEC
+	LCHE_DEC,
+	IL_MS_DEC
 };
 
 extern char const * const DEC_FULL_NAME[];
@@ -44,7 +45,7 @@ extern char const * const DEC_FULL_NAME[];
 #define MS_BETA  0.4
 
 #define MS_THR   1.4
-#define MS_QBITS 7//6//5//6  7 - for qantenne
+#define MS_QBITS 6//6//5//6  6 - for qantenne
 #define MS_DBITS (MS_QBITS + 2) //16
 
 
@@ -98,16 +99,12 @@ typedef struct
 
 typedef struct
 {
-	int q_bits;
-	int q;
 	int nh; 
 	int rh;
 	int m;
     int n;
 	int maxiter;
     int codec_id;
-	int bin_codec;
-	int max_rw;
 	short   **hd; 
 	short   *syndr;                     
 
@@ -146,6 +143,15 @@ typedef struct
 	MS_DATA *lms_rbuffer;
 	MS_DATA *lms_rsoft;
 
+	// Integer Layered Min-Sum Decoder
+	IMS_DATA *ilms_soft;
+	short	*ilms_BnNS;
+	IMS_DEC_STATE *ilms_dcs;
+	IMS_DEC_STATE *ilms_tmps;
+	IMS_DATA *ilms_buffer;
+	IMS_DATA *ilms_rbuffer;
+	IMS_DATA *ilms_rsoft;
+
 	// Low complexity-high efficienty Decoder
 	double  *lche_data0;
 	double	*lche_tmp;
@@ -162,6 +168,7 @@ void decod_close( DEC_STATE* st );
 int min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha );    
 int imin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double thr, int qbits, int dbits );    
 int lmin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta );    
+int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits );    
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxiter );    
 
 

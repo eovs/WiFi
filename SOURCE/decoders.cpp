@@ -221,24 +221,11 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
     if( !st ) 
         return NULL;
 
-	st->q_bits  = q_bits;
 	st->nh      = nh;
 	st->rh      = mh;
 	st->m       = M;
     st->n       = N;
     st->codec_id = codec_id;
-
-	switch( codec_id )
-	{
-	case MS_DEC:
-	case IMS_DEC:
-	case LMS_DEC:
-	case LCHE_DEC:
-		st->bin_codec = 1;
-		break;
-	}
-
-	st->q = st->bin_codec ? 1 : 1 << q_bits;
 
 
 	st->hd = Alloc2d_short( mh, nh );
@@ -259,70 +246,6 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 
 	switch( codec_id )
 	{
-	case MS_DEC:
-		st->ms_soft = (MS_DATA*)calloc(N, sizeof(st->ms_soft[0]) );
-		if( !st->ms_soft )
-			return NULL;
-
-		st->ms_BnNS = (short*)calloc(mh*N, sizeof( st->ms_BnNS[0] ) );
-		if( !st->ms_BnNS )
-			return NULL;
-
-		st->ms_dcs = (MS_DEC_STATE*)calloc(R, sizeof( st->ms_dcs[0] ) );
-		if( !st->ms_dcs )
-			return NULL;
-
-		st->ms_tmps = (MS_DEC_STATE*)calloc(M, sizeof( st->ms_tmps[0] ) );
-		if( !st->ms_tmps )
-			return NULL;
-
-		st->ms_buffer = (MS_DATA*)calloc(M, sizeof(st->ms_buffer[0]) );
-		if( !st->ms_buffer )
-			return NULL;
-
-		st->ms_rbuffer = (MS_DATA*)calloc(M, sizeof(st->ms_rbuffer[0]) );
-		if( !st->ms_rbuffer )
-			return NULL;
-
-		st->ms_rsoft = (MS_DATA*)calloc(M, sizeof(st->ms_rsoft[0]) );
-		if( !st->ms_rsoft )
-			return NULL;
-		break;
-
-	case IMS_DEC:
-		st->ims_y = (IMS_DATA*)calloc(N, sizeof(st->ims_y[0]) );
-		if( !st->ims_y )
-			return NULL;
-
-		st->ims_soft = (IMS_DATA*)calloc(N, sizeof(st->ims_soft[0]) );
-		if( !st->ims_soft )
-			return NULL;
-
-		st->ims_BnNS = (short*)calloc(mh*N, sizeof( st->ims_BnNS[0] ) );
-		if( !st->ims_BnNS )
-			return NULL;
-
-		st->ims_dcs = (IMS_DEC_STATE*)calloc(R, sizeof( st->ims_dcs[0] ) );
-		if( !st->ims_dcs )
-			return NULL;
-
-		st->ims_tmps = (IMS_DEC_STATE*)calloc(M, sizeof( st->ims_tmps[0] ) );
-		if( !st->ims_tmps )
-			return NULL;
-
-		st->ims_buffer = (IMS_DATA*)calloc(M, sizeof(st->ims_buffer[0]) );
-		if( !st->ims_buffer )
-			return NULL;
-
-		st->ims_rbuffer = (IMS_DATA*)calloc(M, sizeof(st->ims_rbuffer[0]) );
-		if( !st->ims_rbuffer )
-			return NULL;
-
-		st->ims_rsoft = (IMS_DATA*)calloc(M, sizeof(st->ims_rsoft[0]) );
-		if( !st->ims_rsoft )
-			return NULL;
-		break;
-
 	case LMS_DEC:
 		st->lms_soft = (MS_DATA*)calloc(N, sizeof(st->lms_soft[0]) );
 		if( !st->lms_soft )
@@ -352,6 +275,37 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 		if( !st->lms_rsoft )
 			return NULL;
 		break;
+
+	case IL_MS_DEC:
+		st->ilms_soft = (IMS_DATA*)calloc(N, sizeof(st->ilms_soft[0]) );
+		if( !st->ilms_soft )
+			return NULL;
+
+		st->ilms_BnNS = (short*)calloc(mh*N, sizeof( st->ilms_BnNS[0] ) );
+		if( !st->ilms_BnNS )
+			return NULL;
+
+		st->ilms_dcs = (IMS_DEC_STATE*)calloc(R, sizeof( st->ilms_dcs[0] ) );
+		if( !st->ilms_dcs )
+			return NULL;
+
+		st->ilms_tmps = (IMS_DEC_STATE*)calloc(M, sizeof( st->ilms_tmps[0] ) );
+		if( !st->ilms_tmps )
+			return NULL;
+
+		st->ilms_buffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_buffer[0]) );
+		if( !st->ilms_buffer )
+			return NULL;
+
+		st->ilms_rbuffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_rbuffer[0]) );
+		if( !st->ilms_rbuffer )
+			return NULL;
+
+		st->ilms_rsoft = (IMS_DATA*)calloc(M, sizeof(st->ilms_rsoft[0]) );
+		if( !st->ilms_rsoft )
+			return NULL;
+		break;
+
 
 	case LCHE_DEC:
 		st->lche_data0 = (double*)calloc(N, sizeof( st->lche_data0[0] ) );
@@ -401,6 +355,28 @@ void check_syndrome( short **matr, int rh, int nh, MS_DATA *soft, MS_DATA *rsoft
 	}
 }
 
+void icheck_syndrome( short **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, short *synd )
+{
+	int k, j, n;
+
+	for( j = 0; j < rh; j++ )
+	{
+		int stateOffset = j*m_ldpc;
+
+		for( k = 0; k < nh; k++ )
+		{
+			int circ = matr[j][k];
+
+			if( circ != SKIP )
+			{
+				rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+				for( n = 0; n < m_ldpc; n++ )
+					synd[stateOffset+n] ^= rsoft[n] < 0;
+			}
+		}
+	}
+}
 
 void decod_close( DEC_STATE* st )
 {
@@ -408,8 +384,6 @@ void decod_close( DEC_STATE* st )
 	int mh = st->rh;
 	int N = st->n;
 	int M = st->m;
-	int q_bits = st->q_bits;
-	int q = st->q;
 	int codec_id = st->codec_id;
 	int R = mh * M;
 
@@ -428,27 +402,6 @@ void decod_close( DEC_STATE* st )
 
 	switch( codec_id )
 	{
-	case MS_DEC:
-		if( st->ms_soft )    { free(st->ms_soft);    st->ms_soft    = NULL; }
-		if( st->ms_BnNS )    { free(st->ms_BnNS);    st->ms_BnNS    = NULL; }
-		if( st->ms_dcs )     { free(st->ms_dcs);     st->ms_dcs     = NULL; }
-		if( st->ms_tmps )    { free(st->ms_tmps);    st->ms_tmps    = NULL; }
-		if( st->ms_buffer )  { free(st->ms_buffer);  st->ms_buffer  = NULL; }
-		if( st->ms_rbuffer ) { free(st->ms_rbuffer); st->ms_rbuffer = NULL; }
-		if( st->ms_rsoft )   { free(st->ms_rsoft);   st->ms_rsoft   = NULL; }
-		break;
-
-	case IMS_DEC:
-		if( st->ims_y )       { free(st->ims_y);       st->ims_y       = NULL; }
-		if( st->ims_soft )    { free(st->ims_soft);    st->ims_soft    = NULL; }
-		if( st->ims_BnNS )    { free(st->ims_BnNS);    st->ims_BnNS    = NULL; }
-		if( st->ims_dcs )     { free(st->ims_dcs);     st->ims_dcs     = NULL; }
-		if( st->ims_tmps )    { free(st->ims_tmps);    st->ims_tmps    = NULL; }
-		if( st->ims_buffer )  { free(st->ims_buffer);  st->ims_buffer  = NULL; }
-		if( st->ims_rbuffer ) { free(st->ims_rbuffer); st->ims_rbuffer = NULL; }
-		if( st->ims_rsoft )   { free(st->ims_rsoft);   st->ims_rsoft   = NULL; }
-		break;
-
 	case LMS_DEC:
 		if( st->lms_soft )    { free(st->lms_soft);    st->lms_soft    = NULL; }
 		if( st->lms_BnNS )    { free(st->lms_BnNS);    st->lms_BnNS    = NULL; }
@@ -713,667 +666,9 @@ int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 
 
 #ifndef MS_MUL_CORRECTION
-int min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha )
-{
-	int   i, j, k, n;
-	int iter;
-	int parity;
-	short **matr       = st->hd;
-	short *synd        = st->syndr; 
-	MS_DATA *soft      = st->ms_soft;
-	short *BnNS        = st->ms_BnNS;  
-	MS_DATA *buffer    = st->ms_buffer;
-	MS_DATA *rbuffer   = st->ms_rbuffer;
-	MS_DATA *rsoft     = st->ms_rsoft;
-	MS_DEC_STATE *dcs  = st->ms_dcs;		
-	MS_DEC_STATE *tmps = st->ms_tmps;		
-
-
-	int m  = st->m;
-	int rh = st->rh;
-	int nh = st->nh;
-	
-	int c_ldpc = m;
-	int r_ldpc = m * rh;
-	int n_ldpc = m * nh;
-
-
-	for( i = 0; i < r_ldpc; i++ )
-	{
-		dcs[i].min1 = 0;
-		dcs[i].min2 = 0;
-		dcs[i].pos  = 0;
-		dcs[i].sign = 0;
-	}
-/*	
-	for( i = 0; i < n_ldpc; i++ )
-	{
-		double val = abs(y[i]) * 4;
-		int sign = y[i] < 0;
-		val = (int)(val + 0.5);
-		y[i] = sign ? -val : val;
-	}
-*/
-
-    {
-        double coef;
-        double en = 0.0;
-  
-        for( i = 0; i < n_ldpc; i++ )
-            en += y[i] * y[i];
-        
-        coef = sqrt( n_ldpc / en );
-        for( i = 0; i < n_ldpc; i++ )
-            y[i] = y[i] * coef;
-    }   
-    
-    memset( BnNS, 0, rh*n_ldpc*sizeof(BnNS[0]) );
-
-
-
-
-	// check input codeword
-	for( j = 0; j < rh; j++ )
-	{
-		for( i = 0; i < nh; i++ ) 
-		{
-			int pos_r = j * m;
-			int pos_n = i * m;
-			int circ = matr[j][i];
-
-			if( circ != - 1 )
-			{
-				rotate( &y[pos_n], rsoft, circ, sizeof(y[0]), m );
-
-				for( k = 0; k < m; k++ )
-					synd[pos_r + k] ^= rsoft[k] < 0;
-			}
-		}
-	}
-
-	parity = 0;
-	for( i = 0; i < r_ldpc; i++ )
-		parity |= synd[i];
-
-
-	for( iter = 0; iter < maxsteps; iter++ )
-	{
-
-		int memOffset;
-
-
-		// INIT_STAGE
-		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
-		memset( soft, 0, n_ldpc*sizeof(soft[0]) );
-		memOffset = 0;
-
-		// STATE 1: compute sum
-		for( j = 0; j < rh; j++ ) 
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-
-                        tmp -= alpha;
-                        if( tmp < 0 )
-                            tmp = 0;
-                        
-						buffer[n] = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -tmp : tmp;
-					}
-
-					rotate( buffer, rbuffer, c_ldpc - circ, sizeof(buffer[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA t = soft[k * c_ldpc + n] + rbuffer[n];
-						soft[k * c_ldpc + n] = t;//limit_val( t, MAX_VAL );
-					}
-
-				}
-
-				memOffset += c_ldpc;
-			}
-
-		} 
-
-		// STATE 2: 
-		for( k = 0; k < n_ldpc; k++ )
-		{
-			soft[k] = y[k] + soft[k];
-			decword[k] = soft[k] < 0;
-		}
-
-
-		// STATE 3: update statistic
-		memOffset = 0;
-		for( j = 0; j < rh; j++ )
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < c_ldpc; k++ )
-			{
-				tmps[k].min1 = MAX_VAL;
-				tmps[k].min2 = MAX_VAL;
-				tmps[k].pos  = 0;
-				tmps[k].sign = 0;
-			}
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					rotate( &soft[k*c_ldpc], rsoft, circ, sizeof(soft[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-						synd[stateOffset+n] ^= rsoft[n] < 0;
-
-					for( n = 0; n < c_ldpc; n++ )
-                    {
-                        MS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-                        
-                        tmp -= alpha;
-                        if( tmp < 0 )
-                            tmp = 0;
-                        
-						buffer[n] = tmp;
-                    }
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						short sign = BnNS[memOffset+n] ^ dcs[stateOffset+n].sign;
-						MS_DATA val  = buffer[n];// * alpha;
-						MS_DATA t    = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -val : val;
-
-						t  = rsoft[n] - t;
-
-						sign = t < 0;
-						BnNS[memOffset+n] = sign;
-						tmps[n].sign ^= sign;
-
-//						val = abs( t );	// incorrect for double t
-						val = t < 0.0 ? -t : t;
-						val = (val > MAX_VAL) ? MAX_VAL : val;
-
-
-						if( val < tmps[n].min1 )      
-						{
-							tmps[n].pos = k;
-							tmps[n].min2 = tmps[n].min1; 
-							tmps[n].min1 = val;
-						}
-						else
-						{
-							if( val < tmps[n].min2 )
-								tmps[n].min2 = val;
-						}
-
-					}  
-				}
-
-
-				memOffset += c_ldpc;
-			}
-
-			for( k = 0; k < c_ldpc; k++ )
-				dcs[stateOffset+k] = tmps[k];
-
-		}
-
-		for( parity = 0, i = 0; i < r_ldpc; i++ )
-			parity |= synd[i];
-
-
-		if( parity == 0 )
-			break; 
-
-	} // stage
-
-	return parity ? -iter : iter+1; 
-}
 
 #else
-int min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha )
-{
-	int   i, j, k, n;
-	int iter;
-	int parity;
-	short **matr       = st->hd;
-	short *synd        = st->syndr; 
-	MS_DATA *soft      = st->ms_soft;
-	short *BnNS        = st->ms_BnNS;  
-	MS_DATA *buffer    = st->ms_buffer;
-	MS_DATA *rbuffer   = st->ms_rbuffer;
-	MS_DATA *rsoft     = st->ms_rsoft;
-	MS_DEC_STATE *dcs  = st->ms_dcs;		
-	MS_DEC_STATE *tmps = st->ms_tmps;		
-
-
-	int m  = st->m;
-	int rh = st->rh;
-	int nh = st->nh;
-	
-	int c_ldpc = m;
-	int r_ldpc = m * rh;
-	int n_ldpc = m * nh;
-
-
-	for( i = 0; i < r_ldpc; i++ )
-	{
-		dcs[i].min1 = 0;
-		dcs[i].min2 = 0;
-		dcs[i].pos  = 0;
-		dcs[i].sign = 0;
-	}
-/*	
-	for( i = 0; i < n_ldpc; i++ )
-	{
-		double val = abs(y[i]) * 4;
-		int sign = y[i] < 0;
-		val = (int)(val + 0.5);
-		y[i] = sign ? -val : val;
-	}
-*/
-
-	memset( BnNS, 0, rh*n_ldpc*sizeof(BnNS[0]) );
-	
-	// check input codeword
-	for( j = 0; j < rh; j++ )
-	{
-		for( i = 0; i < nh; i++ ) 
-		{
-			int pos_r = j * m;
-			int pos_n = i * m;
-			int circ = matr[j][i];
-
-			if( circ != - 1 )
-			{
-				rotate( &y[pos_n], rsoft, circ, sizeof(y[0]), m );
-
-				for( k = 0; k < m; k++ )
-					synd[pos_r + k] ^= rsoft[k] < 0;
-			}
-		}
-	}
-
-	parity = 0;
-	for( i = 0; i < r_ldpc; i++ )
-		parity |= synd[i];
-
-
-	for( iter = 0; iter < maxsteps; iter++ )
-	{
-
-		int memOffset;
-
-
-		// INIT_STAGE
-		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
-		memset( soft, 0, n_ldpc*sizeof(soft[0]) );
-		memOffset = 0;
-
-		// STATE 1: compute sum
-		for( j = 0; j < rh; j++ ) 
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-
-						buffer[n] = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -tmp : tmp;
-					}
-
-					rotate( buffer, rbuffer, c_ldpc - circ, sizeof(buffer[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA t = soft[k * c_ldpc + n] + rbuffer[n];
-						soft[k * c_ldpc + n] = t;//limit_val( t, MAX_VAL );
-					}
-
-				}
-
-				memOffset += c_ldpc;
-			}
-
-		} 
-
-		// STATE 2: 
-		for( k = 0; k < n_ldpc; k++ )
-		{
-			soft[k] = y[k] + soft[k] * alpha; //alpha-normalization
-			decword[k] = soft[k] < 0;
-		}
-
-
-		// STATE 3: update statistic
-		memOffset = 0;
-		for( j = 0; j < rh; j++ )
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < c_ldpc; k++ )
-			{
-				tmps[k].min1 = MAX_VAL;
-				tmps[k].min2 = MAX_VAL;
-				tmps[k].pos  = 0;
-				tmps[k].sign = 0;
-			}
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					rotate( &soft[k*c_ldpc], rsoft, circ, sizeof(soft[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-						synd[stateOffset+n] ^= rsoft[n] < 0;
-
-					for( n = 0; n < c_ldpc; n++ )
-						buffer[n] = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						short sign = BnNS[memOffset+n] ^ dcs[stateOffset+n].sign;
-						MS_DATA val  = buffer[n] * alpha;
-						MS_DATA t    = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -val : val;
-
-						t  = rsoft[n] - t;
-
-						sign = t < 0;
-						BnNS[memOffset+n] = sign;
-						tmps[n].sign ^= sign;
-
-//						val = abs( t );	// incorrect for double t
-						val = t < 0.0 ? -t : t;
-						val = (val > MAX_VAL) ? MAX_VAL : val;
-
-
-						if( val < tmps[n].min1 )      
-						{
-							tmps[n].pos = k;
-							tmps[n].min2 = tmps[n].min1; 
-							tmps[n].min1 = val;
-						}
-						else
-						{
-							if( val < tmps[n].min2 )
-								tmps[n].min2 = val;
-						}
-
-					}  
-				}
-
-
-				memOffset += c_ldpc;
-			}
-
-			for( k = 0; k < c_ldpc; k++ )
-				dcs[stateOffset+k] = tmps[k];
-
-		}
-
-		for( parity = 0, i = 0; i < r_ldpc; i++ )
-			parity |= synd[i];
-
-
-		if( parity == 0 )
-			break; 
-
-	} // stage
-
-	return parity ? -iter : iter+1; 
-}
 #endif
-
-#ifndef MS_MUL_CORRECTION
-int min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha )
-{
-	int   i, j, k, n;
-	int iter;
-	int parity;
-	short **matr       = st->hd;
-	short *synd        = st->syndr; 
-	MS_DATA *soft      = st->ms_soft;
-	short *BnNS        = st->ms_BnNS;  
-	MS_DATA *buffer    = st->ms_buffer;
-	MS_DATA *rbuffer   = st->ms_rbuffer;
-	MS_DATA *rsoft     = st->ms_rsoft;
-	MS_DEC_STATE *dcs  = st->ms_dcs;		
-	MS_DEC_STATE *tmps = st->ms_tmps;		
-
-
-	int m  = st->m;
-	int rh = st->rh;
-	int nh = st->nh;
-	
-	int c_ldpc = m;
-	int r_ldpc = m * rh;
-	int n_ldpc = m * nh;
-
-
-	for( i = 0; i < r_ldpc; i++ )
-	{
-		dcs[i].min1 = 0;
-		dcs[i].min2 = 0;
-		dcs[i].pos  = 0;
-		dcs[i].sign = 0;
-	}
-/*	
-	for( i = 0; i < n_ldpc; i++ )
-	{
-		double val = abs(y[i]) * 4;
-		int sign = y[i] < 0;
-		val = (int)(val + 0.5);
-		y[i] = sign ? -val : val;
-	}
-*/
-
-    {
-        double coef;
-        double en = 0.0;
-  
-        for( i = 0; i < n_ldpc; i++ )
-            en += y[i] * y[i];
-        
-        coef = sqrt( n_ldpc / en );
-        for( i = 0; i < n_ldpc; i++ )
-            y[i] = y[i] * coef;
-    }   
-    
-    memset( BnNS, 0, rh*n_ldpc*sizeof(BnNS[0]) );
-
-
-
-
-	// check input codeword
-	for( j = 0; j < rh; j++ )
-	{
-		for( i = 0; i < nh; i++ ) 
-		{
-			int pos_r = j * m;
-			int pos_n = i * m;
-			int circ = matr[j][i];
-
-			if( circ != - 1 )
-			{
-				rotate( &y[pos_n], rsoft, circ, sizeof(y[0]), m );
-
-				for( k = 0; k < m; k++ )
-					synd[pos_r + k] ^= rsoft[k] < 0;
-			}
-		}
-	}
-
-	parity = 0;
-	for( i = 0; i < r_ldpc; i++ )
-		parity |= synd[i];
-
-
-	for( iter = 0; iter < maxsteps; iter++ )
-	{
-
-		int memOffset;
-
-
-		// INIT_STAGE
-		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
-		memset( soft, 0, n_ldpc*sizeof(soft[0]) );
-		memOffset = 0;
-
-		// STATE 1: compute sum
-		for( j = 0; j < rh; j++ ) 
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-
-                        tmp -= alpha;
-                        if( tmp < 0 )
-                            tmp = 0;
-                        
-						buffer[n] = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -tmp : tmp;
-					}
-
-					rotate( buffer, rbuffer, c_ldpc - circ, sizeof(buffer[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						MS_DATA t = soft[k * c_ldpc + n] + rbuffer[n];
-						soft[k * c_ldpc + n] = t;//limit_val( t, MAX_VAL );
-					}
-
-				}
-
-				memOffset += c_ldpc;
-			}
-
-		} 
-
-		// STATE 2: 
-		for( k = 0; k < n_ldpc; k++ )
-		{
-			soft[k] = y[k] + soft[k];
-			decword[k] = soft[k] < 0;
-		}
-
-
-		// STATE 3: update statistic
-		memOffset = 0;
-		for( j = 0; j < rh; j++ )
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < c_ldpc; k++ )
-			{
-				tmps[k].min1 = MAX_VAL;
-				tmps[k].min2 = MAX_VAL;
-				tmps[k].pos  = 0;
-				tmps[k].sign = 0;
-			}
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					rotate( &soft[k*c_ldpc], rsoft, circ, sizeof(soft[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-						synd[stateOffset+n] ^= rsoft[n] < 0;
-
-					for( n = 0; n < c_ldpc; n++ )
-                    {
-                        MS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-                        
-                        tmp -= alpha;
-                        if( tmp < 0 )
-                            tmp = 0;
-                        
-						buffer[n] = tmp;
-                    }
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						short sign = BnNS[memOffset+n] ^ dcs[stateOffset+n].sign;
-						MS_DATA val  = buffer[n];// * alpha;
-						MS_DATA t    = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -val : val;
-
-						t  = rsoft[n] - t;
-
-						sign = t < 0;
-						BnNS[memOffset+n] = sign;
-						tmps[n].sign ^= sign;
-
-//						val = abs( t );	// incorrect for double t
-						val = t < 0.0 ? -t : t;
-						val = (val > MAX_VAL) ? MAX_VAL : val;
-
-
-						if( val < tmps[n].min1 )      
-						{
-							tmps[n].pos = k;
-							tmps[n].min2 = tmps[n].min1; 
-							tmps[n].min1 = val;
-						}
-						else
-						{
-							if( val < tmps[n].min2 )
-								tmps[n].min2 = val;
-						}
-
-					}  
-				}
-
-
-				memOffset += c_ldpc;
-			}
-
-			for( k = 0; k < c_ldpc; k++ )
-				dcs[stateOffset+k] = tmps[k];
-
-		}
-
-		for( parity = 0, i = 0; i < r_ldpc; i++ )
-			parity |= synd[i];
-
-
-		if( parity == 0 )
-			break; 
-
-	} // stage
-
-	return parity ? -iter : iter+1; 
-}
-
-#else
 
 void process_check_node( MS_DEC_STATE *curr, short curr_v2c_sign, MS_DATA abs_curr_v2c, int index )
 {
@@ -1391,6 +686,24 @@ void process_check_node( MS_DEC_STATE *curr, short curr_v2c_sign, MS_DATA abs_cu
 			curr->min2 = abs_curr_v2c;
 	}
 }
+
+void iprocess_check_node( IMS_DEC_STATE *curr, short curr_v2c_sign, IMS_DATA abs_curr_v2c, int index )
+{
+	curr->sign ^= curr_v2c_sign;
+
+	if( abs_curr_v2c < curr->min1 )      
+	{
+		curr->pos = index;
+		curr->min2 = curr->min1; 
+		curr->min1 = abs_curr_v2c;
+	}
+	else
+	{
+		if( abs_curr_v2c < curr->min2 )
+			curr->min2 = abs_curr_v2c;
+	}
+}
+
 
 #define MY_VERSION
 //#define ALPHA 0.8
@@ -1524,12 +837,12 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 						MS_DATA curr_v2c_val  = rsoft[n] - prev_c2v_val;
 #if 0
 						short	curr_v2c_sgn = curr_v2c_val < 0;
-						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val) *alpha; //scaling 
+						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val)*alpha; //scaling 
 #else
-						const MS_DATA beta = 0.4;// 0.4;
 						short	curr_v2c_sgn = curr_v2c_val < 0;
 						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
 						curr_v2c_abs -= beta;
+
 						//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
 						curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
 #endif
@@ -1781,243 +1094,353 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 
 	return parity ? -iter : iter+1; 
 }
-#endif
 
+#define IL_SOFT_FPP	1
+#define IL_SOFT_ONE (1 << IL_SOFT_FPP)
 
-
-int imin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double thr, int qbits, int dbits )
+int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int inner_data_bits )
 {
 	int   i, j, k, n;
 	int iter;
 	int parity;
-	short **matr        = st->hd;
-	short *synd         = st->syndr; 
-	IMS_DATA *soft      = st->ims_soft;
-	short *BnNS         = st->ims_BnNS;  
-	IMS_DATA *buffer    = st->ims_buffer;
-	IMS_DATA *rbuffer   = st->ims_rbuffer;
-	IMS_DATA *rsoft     = st->ims_rsoft;
-	IMS_DEC_STATE *dcs  = st->ims_dcs;		
-	IMS_DEC_STATE *tmps = st->ims_tmps;		
-	IMS_DATA *iy        = st->ims_y;
-	IMS_DATA max_data   = (IMS_DATA)((1L << (dbits-1)) - 1);
-	IMS_DATA max_quant  = (IMS_DATA)((1L << (qbits-1)) - 1);
+	short **matr       = st->hd;
+	short *synd        = st->syndr; 
+	IMS_DATA *soft     = st->ilms_soft;
+	short *signs       = st->ilms_BnNS;  
+	IMS_DATA *buffer    = st->ilms_buffer;
+	IMS_DATA *rbuffer   = st->ilms_rbuffer;
+	IMS_DATA *rsoft     = st->ilms_rsoft;
+	IMS_DEC_STATE *prev = st->ilms_dcs;		
+	IMS_DEC_STATE *curr = st->ilms_tmps;		
 
+//	IMS_DATA ibeta = (IMS_DATA)(beta * IL_SOFT_ONE);
+	IMS_DATA ibeta = (IMS_DATA)(0.5 * IL_SOFT_ONE);// 0.4;
+
+	int dmax = (1 << (inner_data_bits-1)) - 1;
 
 	int m  = st->m;
 	int rh = st->rh;
 	int nh = st->nh;
 	
-	int c_ldpc = m;
+	int m_ldpc = m;
 	int r_ldpc = m * rh;
 	int n_ldpc = m * nh;
 
-#ifdef MS_MUL_CORRECTION
-	int ialpha = (int)(alpha * (1L << MS_ALPHA_FPP));
-#else
-	IMS_DATA delta = (IMS_DATA)(max_data * alpha);
-#endif
+	for( i = 0; i < n_ldpc; i++ )
+		soft[i] = y[i] << IL_SOFT_FPP;
 
 	for( i = 0; i < r_ldpc; i++ )
 	{
-		dcs[i].min1 = 0;
-		dcs[i].min2 = 0;
-		dcs[i].pos  = 0;
-		dcs[i].sign = 0;
+		prev[i].min1 = 0;
+		prev[i].min2 = 0;
+		prev[i].pos  = 0;
+		prev[i].sign = 0;
 	}
 
 
-	{
-		double coef;
-		double en = 0;
-	
-		for( i = 0; i < n_ldpc; i++ )
-			en += y[i] * y[i];
+#ifdef KEEP_STATISTIC
+	for( i = 0; i < n_ldpc; i++ ) st->prev_soft[i] = soft[i];
+	for( i = 0; i < n_ldpc; i++ ) st->sign_counter[i] = 0;
+	for( i = 0; i < n_ldpc; i++ ) st->min_abs_llr[i]  = 10000;
+#endif
 
-		coef = sqrt(n_ldpc / en);
+#if 01
 
-		for( i = 0; i < n_ldpc; i++ )
-		{
-			int ival;
-			double val = y[i];
-			int   sign = 0;
+	memset( signs, 0, rh*n_ldpc*sizeof(signs[0]) );
 
-			if( val < 0 )
-			{
-				val = -val;
-				sign = 1;
-			}
-
-			val *= coef;
-			if( val > thr ) 
-				val = thr;
-            ival  = (short)floor( val * max_quant / thr + 0.5 );
-
-			iy[i] = sign ? -ival : ival;
-		}
-	}
-
-	memset( BnNS, 0, rh*n_ldpc*sizeof(BnNS[0]) );
-/*
 	// check input codeword
-	for( j = 0; j < rh; j++ )
+	memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+	icheck_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
+
+	parity = 0;
+	for( i = 0; i < r_ldpc; i++ )	parity |= synd[i];
+
+	for( iter = 0; iter < maxsteps; iter++ )
 	{
-		for( i = 0; i < nh; i++ ) 
+		if( parity == 0 )
+			break; 
+
+		// INIT_STAGE
+		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+
+		// update statistic
+		for( j = 0; j < rh; j++ )
 		{
-			int pos_r = j * m;
-			int pos_n = i * m;
-			int circ = matr[j][i];
+			IMS_DATA *prev_c2v_abs = buffer;
+			int stateOffset = j*m_ldpc;
 
-			if( circ != - 1 )
+			for( k = 0; k < m_ldpc; k++ )
 			{
-				rotate( &y[pos_n], rsoft, circ, sizeof(y[0]), m );
-
-				for( k = 0; k < m; k++ )
-					synd[pos_r + k] ^= rsoft[k] < 0;
+				curr[k].min1 = MAX_VAL;
+				curr[k].min2 = MAX_VAL;
+				curr[k].pos  = 0;
+				curr[k].sign = 0;
 			}
-		}
-	}
+
+
+#ifdef MY_VERSION
+			for( k = 0; k < nh; k++ )
+			{
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+						prev_c2v_abs[n] = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						short	prev_c2v_sgn  = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+						IMS_DATA	prev_c2v_val  = prev_c2v_sgn ? -prev_c2v_abs[n] : prev_c2v_abs[n];
+						IMS_DATA curr_v2c_val  = rsoft[n] - prev_c2v_val;
+#if 0
+						short	curr_v2c_sgn = curr_v2c_val < 0;
+						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val)*alpha; //scaling 
+#else
+						short	curr_v2c_sgn = curr_v2c_val < 0;
+						IMS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+						curr_v2c_abs -= ibeta;
+
+						//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
+						curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
+						curr_v2c_abs = curr_v2c_abs > dmax ? dmax : curr_v2c_abs;
+
+#endif
+						/*curr_v2c*/curr_soft[n] = curr_v2c_val;
+						signs[memOffset+n] = curr_v2c_sgn;
+
+						iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+
+					}  
+				}
+			}
+
+			for( k = 0; k < m_ldpc; k++ )
+				prev[stateOffset+k] = curr[k];
+
+			for( k = 0; k < nh; k++ )
+			{
+				IMS_DATA *curr_c2v_val = buffer;
+				IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						IMS_DATA curr_c2v_abs = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+						curr_c2v_val[n] = (signs[memOffset+n] ^ prev[stateOffset+n].sign) ? -curr_c2v_abs : curr_c2v_abs;
+					}
+
+					for( n = 0; n < m_ldpc; n++ )
+						buffer[n] = /*curr_v2c*/curr_soft[n] + curr_c2v_val[n];
+
+					rotate( buffer, rbuffer, m_ldpc - circ, sizeof(curr_c2v_val[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+						curr_soft[n] = rbuffer[n];
+
+				}
+			}
+#else
+			for( k = 0; k < nh; k++ )
+			{
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				MS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						short	prev_c2v_sgn  = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+#if 0
+						MS_DATA	prev_c2v_val  = get_c2v_val( prev_c2v_sgn, k, &prev[stateOffset+n], 1.0/*alpha*/, beta );
+#else
+						MS_DATA beta          = beta_control( &prev[stateOffset+n] );
+						MS_DATA	prev_c2v_val  = get_c2v_val( prev_c2v_sgn, k, &prev[stateOffset+n], 1.0/*alpha*/, beta );
+#endif					
+						MS_DATA curr_v2c_val  = rsoft[n] - prev_c2v_val;
+						short	curr_v2c_sgn = curr_v2c_val < 0;
+						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); 
+
+						curr_soft[n]       = curr_v2c_val;
+						signs[memOffset+n] = curr_v2c_sgn;
+
+						process_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+					}  
+				}
+			}
+
+			for( k = 0; k < m_ldpc; k++ )
+				prev[stateOffset+k] = curr[k];
+
+			for( k = 0; k < nh; k++ )
+			{
+				MS_DATA *curr_c2v_val = buffer;
+				MS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						short curr_c2v_sgn  = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+#if 0
+						curr_c2v_val[n]  = get_c2v_val( curr_c2v_sgn, k, &prev[stateOffset+n], 1.0/*alpha*/, beta );
+#else
+						MS_DATA beta     = beta_control( &prev[stateOffset+n] );
+						curr_c2v_val[n]  = get_c2v_val( curr_c2v_sgn, k, &prev[stateOffset+n], 1.0/*alpha*/, beta );
+#endif					
+					}
+
+					for( n = 0; n < m_ldpc; n++ )
+						buffer[n] = curr_soft[n] + curr_c2v_val[n];
+
+					rotate( buffer, rbuffer, m_ldpc - circ, sizeof(curr_c2v_val[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+						curr_soft[n] = rbuffer[n];
+
+				}
+			}
+#endif
+		} 
+
+#ifdef KEEP_STATISTIC
+		update_statistics( st->prev_soft, soft, st->sign_counter, st->min_abs_llr, 0.0, n_ldpc );
+#endif
+
+		// check syndrome
+		icheck_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
+
+		for( parity = 0, i = 0; i < r_ldpc; i++ )
+			parity |= synd[i];
+
+
+		if( parity == 0 )
+			break; 
+
+	} // stage
+#else
+	memset( signs, 0, rh*n_ldpc*sizeof(signs[0]) );
+
+	// check input codeword
+	memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+	check_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
 
 	parity = 0;
 	for( i = 0; i < r_ldpc; i++ )
 		parity |= synd[i];
-*/
 
 	for( iter = 0; iter < maxsteps; iter++ )
 	{
-
-		int memOffset;
-
+		if( parity == 0 )
+			break; 
 
 		// INIT_STAGE
 		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
-		memset( soft, 0, n_ldpc*sizeof(soft[0]) );
-		memOffset = 0;
-
-		// STATE 1: compute sum
-		for( j = 0; j < rh; j++ ) 
-		{
-			int stateOffset = j*c_ldpc;
-
-			for( k = 0; k < nh; k++ )
-			{
-				int circ = matr[j][k];
-
-				if( circ != SKIP )
-				{
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						IMS_DATA tmp = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-#ifdef MS_MUL_CORRECTION
-						tmp = (IMS_DATA)((tmp * ialpha) >> MS_ALPHA_FPP);
-#else
-						tmp -= delta;
-						if( tmp < 0 ) tmp = 0;
-#endif
-
-						buffer[n] = (BnNS[memOffset+n] ^ dcs[stateOffset+n].sign) ? -tmp : tmp;
-					}
-
-					rotate( buffer, rbuffer, c_ldpc - circ, sizeof(buffer[0]), c_ldpc ); 
-
-					for( n = 0; n < c_ldpc; n++ )
-					{
-						IMS_DATA t = soft[k * c_ldpc + n] + rbuffer[n];
-						soft[k * c_ldpc + n] = limit_val( t, max_data );
-					}
-
-				}
-
-				memOffset += c_ldpc;
-			}
-
-		} 
-
-		// STATE 2: 
-		for( k = 0; k < n_ldpc; k++ )
-		{
-#if 0
-			soft[k] = iy[k] + (IMS_DATA)((soft[k] * ialpha) >> MS_ALPHA_FPP); //alpha-normalization
-#else
-			soft[k] = iy[k] + soft[k]; 
-#endif
-			soft[k] = limit_val( soft[k], max_data );
-			decword[k]   = soft[k] < 0;
-		}
-
-
-
-		// STATE 3: update statistic
-		memOffset = 0;
+	
+		// update statistic
 		for( j = 0; j < rh; j++ )
 		{
-			int stateOffset = j*c_ldpc;
+			int stateOffset = j*m_ldpc;
 
-			for( k = 0; k < c_ldpc; k++ )
+			for( k = 0; k < m_ldpc; k++ )
 			{
-				tmps[k].min1 = max_data;
-				tmps[k].min2 = max_data;
-				tmps[k].pos  = 0;
-				tmps[k].sign = 0;
+				curr[k].min1 = MAX_VAL;
+				curr[k].min2 = MAX_VAL;
+				curr[k].pos  = 0;
+				curr[k].sign = 0;
 			}
 
 			for( k = 0; k < nh; k++ )
 			{
+				int memOffset = j * n_ldpc + k * m_ldpc;
 				int circ = matr[j][k];
 
 				if( circ != SKIP )
 				{
-					rotate( &soft[k*c_ldpc], rsoft, circ, sizeof(soft[0]), c_ldpc ); 
+					rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
 
-					for( n = 0; n < c_ldpc; n++ )
-						synd[stateOffset+n] ^= rsoft[n] < 0;
+					for( n = 0; n < m_ldpc; n++ )
+						buffer[n] = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
 
-					for( n = 0; n < c_ldpc; n++ )
-						buffer[n] = dcs[stateOffset+n].pos == k ? dcs[stateOffset+n].min2 : dcs[stateOffset+n].min1;
-
-					for( n = 0; n < c_ldpc; n++ )
+					for( n = 0; n < m_ldpc; n++ )
 					{
-						short sign   = BnNS[memOffset+n] ^ dcs[stateOffset+n].sign;
-#ifdef MS_MUL_CORRECTION
-						IMS_DATA val = (IMS_DATA)((buffer[n] * ialpha) >> MS_ALPHA_FPP);
+						short	prev_c2v_sgn = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+						MS_DATA	prev_c2v_val = prev_c2v_sgn ? -buffer[n] : buffer[n];
+						MS_DATA curr_v2c_val = rsoft[n] - prev_c2v_val;
+#if 0
+						short	curr_v2c_sgn = curr_v2c_val < 0;
+						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val) * alpha; //scaling 
 #else
-						IMS_DATA tmp = buffer[n] - delta;
-						IMS_DATA val = tmp < 0 ? 0 : tmp;
+						const MS_DATA beta = 0.4;
+						short	curr_v2c_sgn = curr_v2c_val < 0;
+						MS_DATA curr_v2c_abs  = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+						curr_v2c_abs -= beta;
+						if( curr_v2c_abs < 0 )
+						{
+							curr_v2c_abs = 0;
+							curr_v2c_sgn = 0;
+						}
 #endif
-						IMS_DATA t   = sign ? -val : val;
-                        IMS_DATA v2c_msg = rsoft[n] - t;
-						short v2c_sign = v2c_msg < 0;
-						
-						BnNS[memOffset+n] = v2c_sign;
-						tmps[n].sign     ^= v2c_sign;
+						signs[memOffset+n] = curr_v2c_sgn;
 
-						val = v2c_msg < 0 ? -v2c_msg : v2c_msg;
-						val = (val > max_data) ? max_data : val;
-
-
-						if( val < tmps[n].min1 )      
-						{
-							tmps[n].pos = k;
-							tmps[n].min2 = tmps[n].min1; 
-							tmps[n].min1 = val;
-						}
-						else
-						{
-							if( val < tmps[n].min2 )
-								tmps[n].min2 = val;
-						}
-
+						process_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
 					}  
 				}
 
-
-				memOffset += c_ldpc;
+				memOffset += m_ldpc;
 			}
 
-			for( k = 0; k < c_ldpc; k++ )
-				dcs[stateOffset+k] = tmps[k];
-
+			for( k = 0; k < m_ldpc; k++ )
+				prev[stateOffset+k] = curr[k];
 		}
+
+		for( k = 0; k < n_ldpc; k++ )
+			soft[k] = y[k];
+		
+		// STATE: compute soft output
+		for( j = 0; j < rh; j++ ) 
+		{
+			int stateOffset = j*m_ldpc;
+			for( k = 0; k < nh; k++ )
+			{
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						MS_DATA tmp = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+						buffer[n] = (signs[memOffset+n] ^ prev[stateOffset+n].sign) ? -tmp : tmp;
+					}
+
+					rotate( buffer, rbuffer, m_ldpc - circ, sizeof(buffer[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						soft[k * m_ldpc + n] = soft[k * m_ldpc + n] + rbuffer[n];
+					}
+
+				}
+			}
+		} 
+
+		// check syndrome
+		check_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
 
 		for( parity = 0, i = 0; i < r_ldpc; i++ )
 			parity |= synd[i];
@@ -2028,8 +1451,11 @@ int imin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 
 	} // stage
 
+#endif
+	
+	for( k = 0; k < n_ldpc; k++ )
+		decword[k] = soft[k] < 0;
+
 	return parity ? -iter : iter+1; 
 }
-
-
 
