@@ -40,7 +40,7 @@ QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m )
         st->Lfact = L;
     st->ns = st->Lfact / m;
     
-    st->x = (short*)calloc( st->Lfact, sizeof(st->x[0]) );
+    st->x = (int*)calloc( st->Lfact, sizeof(st->x[0]) );
     if( !st->x ) return NULL;
     
     st->z1 = (int*)calloc( st->ns, sizeof(st->z1[0]));
@@ -70,8 +70,8 @@ void QAM_modulator_close(QAM_MODULATOR_STATE* st)
 }
 
 
-static short gray[]={0, 1, 3, 2, 7, 6, 4, 5, 15, 14, 12, 13,  8,  9, 11, 10};  //% anti-gray
-static short s[] = {0,1,3,7, 15};
+static int gray[]={0, 1, 3, 2, 7, 6, 4, 5, 15, 14, 12, 13,  8,  9, 11, 10};  //% anti-gray
+static int s[] = {0,1,3,7, 15};
 
 static void GrayPAM( int x[], int size, int y[], int order )
 {

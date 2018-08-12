@@ -39,7 +39,7 @@ void cyclic_shift_left( int y[], int s, int yc[], int M )
 
 
 #define MAX_M 1000
-void encode_qc( int codeword[], short *hb[], int M, int b, int c, short synd[] )
+void encode_qc( int codeword[], int *hb[], int M, int b, int c, int synd[] )
 {
     int i, j;
     int k;

@@ -62,14 +62,14 @@ typedef struct
 {
     int   Lorg; 
     int   Lfact;
-    short Q;
-    short m;
-    short ns;
-    short *x;
+    int Q;
+    int m;
+    int ns;
+    int *x;
  //   short **y;
     int *z1;
     int *z2;
-    short p[4];
+    int p[4];
 	int *dx;
 } QAM_MODULATOR_STATE;
 
@@ -78,7 +78,7 @@ typedef struct
     
     double  T;
     double  sigma;
-    short   Q;      //QAM
+    int   Q;      //QAM
     int     n;      // code length
     int     m;      // log2( QAM )
     int     ns;     // number of signals
@@ -95,13 +95,13 @@ typedef struct
 PERMSTATE* Permutations_Open( int b, int c, int M, int QAM, int halfmlog, int perm_mode, int block_size, int step_size );
 void Permutations_Close( PERMSTATE *st );
 void Permutation( PERMSTATE* state, int direction, double pinp[], double pout[] );
-void Permutation_Init(  PERMSTATE* state, short **hc );
+void Permutation_Init(  PERMSTATE* state, int **hc );
 
 QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m );
 void QAM_modulator_close(QAM_MODULATOR_STATE* st);
 void QAM_modulator( QAM_MODULATOR_STATE *qam_mod_state, int *in, int *out[2]  );
 
-QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, short Q, int n, int m, int ns, int out_type );
+QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int n, int m, int ns, int out_type );
 void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st );
 void Demodulate( QAM_DEMODULATOR_STATE* st, double *x[2], double pRes[] );
 

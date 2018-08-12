@@ -49,18 +49,6 @@ extern char const * const DEC_FULL_NAME[];
 #define MS_DBITS (MS_QBITS + 2) //16
 
 
-#define UFLT_MNT_16
-#define FLT_MNT_16
-//#define FLT_POW_16
-
-#ifdef _MSC_VER
-typedef unsigned __int64    ui64;
-typedef __int64             i64;
-#else
-typedef unsigned long long  ui64;
-typedef long long           i64;
-#endif
-
 typedef unsigned int        ui32;
 typedef unsigned short      ui16;
 typedef short               i16;
@@ -71,13 +59,11 @@ typedef signed char         i8;
 
 #if 01
 typedef double MS_DATA;
-//typedef unsigned short UDATA;
 #else
 typedef char MS_DATA;
-typedef unsigned char UDATA;
 #endif
 
-typedef short IMS_DATA;
+typedef int IMS_DATA;
 
 
 typedef struct  
@@ -105,8 +91,8 @@ typedef struct
     int n;
 	int maxiter;
     int codec_id;
-	short   **hd; 
-	short   *syndr;                     
+	int   **hd; 
+	int   *syndr;                     
 
 	
 //#ifdef KEEP_STATISTIC
@@ -117,7 +103,7 @@ typedef struct
 
 	// Min-Sum Decoder
 	MS_DATA *ms_soft;
-	short	*ms_BnNS;
+	int	*ms_BnNS;
 	MS_DEC_STATE *ms_dcs;
 	MS_DEC_STATE *ms_tmps;
 	MS_DATA *ms_buffer;
@@ -126,7 +112,7 @@ typedef struct
 
 	// Integer Min-Sum Decoder
 	IMS_DATA *ims_soft;
-	short	 *ims_BnNS;
+	int	 *ims_BnNS;
 	IMS_DATA *ims_y;
 	IMS_DEC_STATE *ims_dcs;
 	IMS_DEC_STATE *ims_tmps;
@@ -136,7 +122,7 @@ typedef struct
 
 	// Layered Min-Sum Decoder
 	MS_DATA *lms_soft;
-	short	*lms_BnNS;
+	int	*lms_BnNS;
 	MS_DEC_STATE *lms_dcs;
 	MS_DEC_STATE *lms_tmps;
 	MS_DATA *lms_buffer;
@@ -144,8 +130,10 @@ typedef struct
 	MS_DATA *lms_rsoft;
 
 	// Integer Layered Min-Sum Decoder
+	IMS_DATA *ilms_y;
+	IMS_DATA *ilms_decword;
 	IMS_DATA *ilms_soft;
-	short	*ilms_BnNS;
+	int	*ilms_BnNS;
 	IMS_DEC_STATE *ilms_dcs;
 	IMS_DEC_STATE *ilms_tmps;
 	IMS_DATA *ilms_buffer;
@@ -170,6 +158,10 @@ int imin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter,
 int lmin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta );    
 int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits );    
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxiter );    
+
+
+void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
+void il_min_sum_init( IMS_DEC_STATE *prev, int r, int *signs, int n );
 
 
 
