@@ -316,7 +316,7 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 		if(!st->ilche_data0 )
 			return NULL;
 
-		st->ilche_tmp = (double*)calloc(nh, sizeof( st->ilche_tmp[0] ) );
+		st->ilche_tmp = (int*)calloc(nh, sizeof( st->ilche_tmp[0] ) );
 		if(!st->ilche_tmp )
 			return NULL;
 
@@ -449,36 +449,32 @@ void decod_close( DEC_STATE* st )
 
 
 
-#define ROW_WEIGHT_MAX 1024
+static double A[] = 
+{	
+	1.41e+00, 7.72e-01, 4.54e-01, 2.72e-01, 1.65e-01, 9.97e-02, 6.04e-02, 3.66e-02, 
+	2.22e-02, 1.35e-02, 8.17e-03, 4.96e-03, 3.01e-03, 1.82e-03, 1.11e-03, 6.71e-04,
+	4.07e-04, 2.47e-04, 1.50e-04, 9.08e-05, 5.51e-05, 3.34e-05, 2.03e-05, 1.23e-05, 
+	7.45e-06, 4.52e-06, 2.74e-06, 1.66e-06, 1.01e-06, 6.12e-07, 3.71e-07, 2.25e-07
+};
 
+static double B[] = 
+{
+	3.47, 2.77, 2.37, 2.08, 1.86, 1.69, 1.54, 1.41,
+	1.29, 1.19, 1.11, 1.03, 0.95, 0.89, 0.83, 0.77,
+	0.72, 0.67, 0.63, 0.59, 0.55, 0.52, 0.48, 0.45,
+	0.43, 0.40, 0.37, 0.35, 0.33, 0.31, 0.29, 0.27
+};
+
+static double C[] =
+{
+	6.93, 6.24, 5.83, 5.55, 5.32, 5.14, 4.99, 4.85,
+	4.73, 4.63, 4.53, 4.45, 4.37, 4.29, 4.22, 4.16,
+	4.10, 4.04, 3.99, 3.94, 3.89, 3.84, 3.80, 3.75,
+	3.71, 3.67, 3.64, 3.60, 3.56, 3.53, 3.50, 3.47
+};
 
 static inline MS_DATA logexp_int( MS_DATA x )
 {
-	static double A[] = 
-	{	
-		1.41e+00, 7.72e-01, 4.54e-01, 2.72e-01, 1.65e-01, 9.97e-02, 6.04e-02, 3.66e-02, 
-		2.22e-02, 1.35e-02, 8.17e-03, 4.96e-03, 3.01e-03, 1.82e-03, 1.11e-03, 6.71e-04,
-		4.07e-04, 2.47e-04, 1.50e-04, 9.08e-05, 5.51e-05, 3.34e-05, 2.03e-05, 1.23e-05, 
-		7.45e-06, 4.52e-06, 2.74e-06, 1.66e-06, 1.01e-06, 6.12e-07, 3.71e-07, 2.25e-07
-	};
-
-	static double B[] = 
-	{
-		3.47, 2.77, 2.37, 2.08, 1.86, 1.69, 1.54, 1.41,
-		1.29, 1.19, 1.11, 1.03, 0.95, 0.89, 0.83, 0.77,
-		0.72, 0.67, 0.63, 0.59, 0.55, 0.52, 0.48, 0.45,
-		0.43, 0.40, 0.37, 0.35, 0.33, 0.31, 0.29, 0.27
-	};
-
-	static double C[] =
-	{
-		6.93, 6.24, 5.83, 5.55, 5.32, 5.14, 4.99, 4.85,
-		4.73, 4.63, 4.53, 4.45, 4.37, 4.29, 4.22, 4.16,
-		4.10, 4.04, 3.99, 3.94, 3.89, 3.84, 3.80, 3.75,
-		3.71, 3.67, 3.64, 3.60, 3.56, 3.53, 3.50, 3.47
-	};
-
-
     if( x <= 0 ) x = 1.0/4096.0;
 	if( x > 16.0 ) x = 16.0;
 
@@ -502,6 +498,10 @@ static inline MS_DATA logexp_int( MS_DATA x )
 				return s-C[(int)(512*x + 0.5) - 1];
 			}
 }
+
+
+
+
 void map_bin_llr(MS_DATA y[], int n )
 {
 	int i;
@@ -546,6 +546,9 @@ void map_bin_llr(MS_DATA y[], int n )
 	for( i = 0; i < n; i++ )
 		y[i] = (2 * hard[i] - 1) * a[i];
 }
+
+
+
 
 
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
@@ -667,19 +670,121 @@ int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 	return steps;
 }
 
-#if 01
+
 #define ILCHE_SOFT_FPP	8 // bits per soft
 #define ONE_ILCHE_SOFT (1 << ILCHE_SOFT_FPP)
 #define ILCHE_INNER_FPP 8 // bits per inner variables
 #define ONE_ILCHE_INNER (1 << ILCHE_INNER_FPP)
-#endif
 
-int d2i( double val, int one_fpp )
+
+static inline int d2i( double val, int one_fpp )
 {
 	double absval = val < 0.0 ? -val : val;
 	int    sign   = val < 0.0 ? 1 : 0;
 	int iabsval = (int)(absval * one_fpp + 0.5);
 	return sign ? -iabsval : iabsval;
+}
+
+#define LOG_FPP 12
+#define ONE_LOG	(1 << LOG_FPP)
+
+#define ILOG(x) ( (int)((x)*ONE_LOG + 0.5) )
+
+static int iA[] = 
+{	
+	ILOG(1.41e+00), ILOG(7.72e-01), ILOG(4.54e-01), ILOG(2.72e-01), ILOG(1.65e-01), ILOG(9.97e-02), ILOG(6.04e-02), ILOG(3.66e-02), 
+	ILOG(2.22e-02), ILOG(1.35e-02), ILOG(8.17e-03), ILOG(4.96e-03), ILOG(3.01e-03), ILOG(1.82e-03), ILOG(1.11e-03), ILOG(6.71e-04),
+	ILOG(4.07e-04), ILOG(2.47e-04), ILOG(1.50e-04), ILOG(9.08e-05), ILOG(5.51e-05), ILOG(3.34e-05), ILOG(2.03e-05), ILOG(1.23e-05), 
+	ILOG(7.45e-06), ILOG(4.52e-06), ILOG(2.74e-06), ILOG(1.66e-06), ILOG(1.01e-06), ILOG(6.12e-07), ILOG(3.71e-07), ILOG(2.25e-07)
+};
+
+static int iB[] = 
+{
+	ILOG(3.47), ILOG(2.77), ILOG(2.37), ILOG(2.08), ILOG(1.86), ILOG(1.69), ILOG(1.54), ILOG(1.41),
+	ILOG(1.29), ILOG(1.19), ILOG(1.11), ILOG(1.03), ILOG(0.95), ILOG(0.89), ILOG(0.83), ILOG(0.77),
+	ILOG(0.72), ILOG(0.67), ILOG(0.63), ILOG(0.59), ILOG(0.55), ILOG(0.52), ILOG(0.48), ILOG(0.45),
+	ILOG(0.43), ILOG(0.40), ILOG(0.37), ILOG(0.35), ILOG(0.33), ILOG(0.31), ILOG(0.29), ILOG(0.27)
+};
+
+static int iC[] =
+{
+	ILOG(6.93), ILOG(6.24), ILOG(5.83), ILOG(5.55), ILOG(5.32), ILOG(5.14), ILOG(4.99), ILOG(4.85),
+	ILOG(4.73), ILOG(4.63), ILOG(4.53), ILOG(4.45), ILOG(4.37), ILOG(4.29), ILOG(4.22), ILOG(4.16),
+	ILOG(4.10), ILOG(4.04), ILOG(3.99), ILOG(3.94), ILOG(3.89), ILOG(3.84), ILOG(3.80), ILOG(3.75),
+	ILOG(3.71), ILOG(3.67), ILOG(3.64), ILOG(3.60), ILOG(3.56), ILOG(3.53), ILOG(3.50), ILOG(3.47)
+};
+
+static inline MS_DATA ilogexp_int( int ix )
+{
+	if( ix <= 0 ) ix = ONE_LOG/4096;
+	if( ix > 16.0*ONE_LOG ) ix = ONE_LOG * 16;
+
+	if( ix >= ONE_LOG * 2 )
+		return  -iA[ (ix * 2) / ONE_LOG - 1]; 
+	else
+		if( ix > ONE_LOG / 16 )
+			return -iB[ (ix * 16) / ONE_LOG  - 1];
+		else
+			if( ix > ONE_LOG / 512 )
+				return -iC[ (ix * 512) / ONE_LOG - 1];
+			else  
+			{
+                int s = 0;
+				while( ix < ONE_LOG/512 )
+				{
+					ix *= 32;
+					s -= (int)(3.46 * ONE_LOG);
+				}
+
+				return s - iC[(ix * 512) / ONE_LOG - 1];
+			}
+}
+
+void imap_bin_llr( int y[], int n )
+{
+	int i;
+	static int hard[1024];
+	static int ay[1024];
+	static int alogpy[1024];
+	static int a[1024];
+	static int A[1024];
+	int synd;
+	int sum;
+
+	for( i = 0; i < n; i++ )
+	{
+		hard[i] = y[i] < 0;
+	}	
+	
+	synd = 0;
+	for( i = 0; i < n; i++ )
+		synd ^=hard[i];
+
+	for( i = 0; i < n; i++ )
+		hard[i] ^= synd;
+
+#if LOG_FPP >= ILCHE_INNER_FPP
+	for( i = 0; i < n; i++ )
+		ay[i] = (y[i] < 0.0 ? -y[i] : y[i]) << (LOG_FPP - ILCHE_INNER_FPP);
+#else
+	for( i = 0; i < n; i++ )
+		ay[i] = div_power2r(y[i] < 0.0 ? -y[i] : y[i]), ILCHE_INNER_FPP-LOG_FPP);
+#endif
+	for( i = 0; i < n; i++ )
+		alogpy[i] = d2i( ilogexp_int( ay[i] ), 1 );
+
+	sum = 0;
+	for( i = 0; i < n; i++ )
+		sum += alogpy[i];
+
+	for( i = 0; i < n; i++ )
+		A[i] = alogpy[i] - sum;
+
+	for( i = 0; i < n; i++ )
+		a[i] = d2i( ilogexp_int( A[i] ) /  ONE_LOG, ONE_ILCHE_INNER );
+
+	for( i = 0; i < n; i++ )
+		y[i] = (2 * hard[i] - 1) * a[i];
 }
 
 int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
@@ -691,9 +796,8 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 	int *soft_out = st->ilche_soft_out;
 	int *syndr    = st->syndr;
 	int *data0 = st->ilche_data0;
-//	double *u = st->ilche_data0;
-	double u[100];
-	double *y = st->ilche_tmp;
+	int *u = st->ilche_data0;
+	int *y = st->ilche_tmp;
 	int synd;
 
 	int rh = st->rh;
@@ -701,7 +805,6 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 	int m  = st->m;
 	int r = rh * m;
 	int n = nh * m;
-
 
 	for( i = 0; i < r; i++ )
 		for(j = 0; j < n; j++ )
@@ -751,14 +854,16 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 					if( circ != -1 )
 					{
 						int idx = j * m + ((k + circ) % m);
-
-						u[cnt] = y[cnt] = (double)soft_out[idx] / ONE_ILCHE_SOFT - (double)a[idx]/ONE_ILCHE_INNER;
-
+#if ONE_ILCHE_INNER < ONE_ILCHE_SOFT
+						y[cnt] = u[cnt] = div_power2r( soft_out[idx], (ONE_ILCHE_SOFT - ONE_ILCHE_INNER) ) - a[idx];
+#else
+						y[cnt] = u[cnt] = ( soft_out[idx] <<  (ONE_ILCHE_INNER - ONE_ILCHE_SOFT) ) - a[idx];
+#endif
 						cnt++;
 					}
 				}
 
-				map_bin_llr( u, cnt );
+				imap_bin_llr( u, cnt );
 
 				cnt = 0;
 				for( j = 0; j < nh; j++ )
@@ -769,8 +874,12 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 					{
 						int idx = j * m + ((k + circ) % m);
 						{
-							soft_out[idx] = d2i( u[cnt] + y[cnt], ONE_ILCHE_SOFT );
-							a[idx]        = d2i( u[cnt],          ONE_ILCHE_INNER );
+#if ONE_ILCHE_INNER > ONE_ILCHE_SOFT
+							soft_out[idx] = div_power2r( u[cnt] + y[cnt], (ONE_ILCHE_INNER - ONE_ILCHE_SOFT);
+#else
+							soft_out[idx] = (u[cnt] + y[cnt]) << (ONE_ILCHE_SOFT - ONE_ILCHE_INNER);
+#endif
+							a[idx]        = u[cnt];
 						}
 						cnt++;
 					}

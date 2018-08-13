@@ -150,7 +150,7 @@ typedef struct
 
 	// integer Low complexity-high efficienty Decoder
 	int  *ilche_data0;
-	double	*ilche_tmp;
+	int	 *ilche_tmp;
 	int  *ilche_soft_out;
 	int  **ilche_state;
 
