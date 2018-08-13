@@ -311,6 +311,24 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 			break;
 		break;
 
+	case ILCHE_DEC:
+		st->ilche_data0 = (int*)calloc(N, sizeof( st->ilche_data0[0] ) );
+		if(!st->ilche_data0 )
+			return NULL;
+
+		st->ilche_tmp = (double*)calloc(nh, sizeof( st->ilche_tmp[0] ) );
+		if(!st->ilche_tmp )
+			return NULL;
+
+		st->ilche_soft_out = (int*)calloc(N, sizeof(st->ilche_soft_out[0]) );
+		if( !st->ilche_soft_out )
+			return NULL;
+
+		st->ilche_state = Alloc2d_int( mh*M, nh*M );
+		if( st->ilche_state==NULL)
+			break;
+		break;
+
 	default: return NULL;
 	}
 
@@ -415,6 +433,13 @@ void decod_close( DEC_STATE* st )
 		if( st->lche_tmp )     { free(st->lche_tmp);		        st->lche_tmp      = NULL; }
 		if( st->lche_soft_out )  { free(st->lche_soft_out);         st->lche_soft_out = NULL; }
 		if( st->lche_state )     { free2d_double( st->lche_state ); st->lche_state    = NULL; }
+		break;
+
+	case ILCHE_DEC:
+		if( st->ilche_data0 )     { free(st->ilche_data0);            st->ilche_data0    = NULL; }
+		if( st->ilche_tmp )       { free(st->ilche_tmp);	          st->ilche_tmp      = NULL; }
+		if( st->ilche_soft_out )  { free(st->ilche_soft_out);         st->ilche_soft_out = NULL; }
+		if( st->ilche_state )     { free2d_int( st->ilche_state );    st->ilche_state    = NULL; }
 		break;
 	default:;
 	}
@@ -642,31 +667,150 @@ int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 	return steps;
 }
 
-
-
-
-
-
-
-#if 1
-#define BPS	15 // bits per soft
-#define BPV 15 // bits per inner variables
-#define MAX_VAL ((1L << BPV) - 1)
-#else
-#define BPS	3 // bits per soft
-#define BPV 5 // bits per inner variables
-#define MAX_VAL ((1 << BPV) - 1)
+#if 01
+#define ILCHE_SOFT_FPP	8 // bits per soft
+#define ONE_ILCHE_SOFT (1 << ILCHE_SOFT_FPP)
+#define ILCHE_INNER_FPP 8 // bits per inner variables
+#define ONE_ILCHE_INNER (1 << ILCHE_INNER_FPP)
 #endif
+
+int d2i( double val, int one_fpp )
+{
+	double absval = val < 0.0 ? -val : val;
+	int    sign   = val < 0.0 ? 1 : 0;
+	int iabsval = (int)(absval * one_fpp + 0.5);
+	return sign ? -iabsval : iabsval;
+}
+
+int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
+{ 
+	int i, j, k;
+	int steps;
+	int **hd = st->hd;
+	int **Z = st->ilche_state;
+	int *soft_out = st->ilche_soft_out;
+	int *syndr    = st->syndr;
+	int *data0 = st->ilche_data0;
+//	double *u = st->ilche_data0;
+	double u[100];
+	double *y = st->ilche_tmp;
+	int synd;
+
+	int rh = st->rh;
+	int nh = st->nh;
+	int m  = st->m;
+	int r = rh * m;
+	int n = nh * m;
+
+
+	for( i = 0; i < r; i++ )
+		for(j = 0; j < n; j++ )
+			Z[i][j] = 0;
+
+	// just to compute syndrome before iterations
+	for( i = 0; i < n; i++ )
+		soft_out[i] = soft[i] * ONE_ILCHE_SOFT;
+
+#ifdef KEEP_STATISTIC
+	for( i = 0; i < n; i++ ) st->prev_soft[i] = soft_out[i];
+	for( i = 0; i < n; i++ ) st->sign_counter[i] = 0;
+	for( i = 0; i < n; i++ ) st->min_abs_llr[i]  = 10000;
+#endif
+
+	memset( syndr, 0, r * sizeof(syndr[0]) );
+	icheck_syndrome( hd, rh, nh, soft_out, data0, m, syndr );
+
+	synd = 0;
+	for( i = 0; i < r; i++ )	synd |= syndr[i];
+	if( synd == 0 )
+	{
+		for( i = 0; i < n; i++ )
+			decword[i] = soft_out[i] < 0;
+
+		return 1; // 0; 
+	}
+
+	steps = 0; // number of iterations
+	while( steps < maxsteps )
+	{
+		//	START ITERATIONS
+
+		for( i = 0; i < rh; i++ )	//loop over checks
+		{
+			int cnt;
+
+			for( k = 0; k < m; k++ )
+			{
+				int *a = Z[i * m + k];
+
+				cnt = 0;
+				for( j = 0; j < nh; j++ )
+				{
+					int circ = hd[i][j];
+
+					if( circ != -1 )
+					{
+						int idx = j * m + ((k + circ) % m);
+
+						u[cnt] = y[cnt] = (double)soft_out[idx] / ONE_ILCHE_SOFT - (double)a[idx]/ONE_ILCHE_INNER;
+
+						cnt++;
+					}
+				}
+
+				map_bin_llr( u, cnt );
+
+				cnt = 0;
+				for( j = 0; j < nh; j++ )
+				{
+					int circ = hd[i][j];
+
+					if( circ != -1 )
+					{
+						int idx = j * m + ((k + circ) % m);
+						{
+							soft_out[idx] = d2i( u[cnt] + y[cnt], ONE_ILCHE_SOFT );
+							a[idx]        = d2i( u[cnt],          ONE_ILCHE_INNER );
+						}
+						cnt++;
+					}
+				}
+			}
+		}
+
+#ifdef KEEP_STATISTIC
+		update_statistics( st->prev_soft, soft_out, st->sign_counter, st->min_abs_llr, 0.5, n );
+#endif
+		//		synd = check_syndrome_thr( syndr, r, hd, rh, nh, m, soft_out, data0, 0.5 );
+
+		steps = steps+1;
+
+		memset( syndr, 0, r * sizeof(syndr[0]) );
+		icheck_syndrome( hd, rh, nh, soft_out, data0, m, syndr );
+		synd = 0;
+		for( i = 0; i < r; i++ )	synd |= syndr[i];
+
+		if( synd == 0 ) 
+			break;
+	}
+
+	for( i = 0; i < n; i++ )
+		decword[i] = soft_out[i] < 0.0;
+
+	if( synd == 1 )
+		steps = -steps;  // errors detected but not corrected
+
+	return steps;
+}
+
+
+
+
+
+
 
 #define limit_val( x, max_val )	(x) > max_val ? max_val : ((x) < -max_val ? -max_val : (x))
 
-
-
-
-#ifndef MS_MUL_CORRECTION
-
-#else
-#endif
 
 void process_check_node( MS_DEC_STATE *curr, int curr_v2c_sign, MS_DATA abs_curr_v2c, int index )
 {
@@ -807,8 +951,8 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 
 			for( k = 0; k < m_ldpc; k++ )
 			{
-				curr[k].min1 = MAX_VAL;
-				curr[k].min2 = MAX_VAL;
+				curr[k].min1 = 10000;
+				curr[k].min2 = 10000;
 				curr[k].pos  = 0;
 				curr[k].sign = 0;
 			}
@@ -1175,8 +1319,8 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 			for( k = 0; k < m_ldpc; k++ )
 			{
-				curr[k].min1 = MAX_VAL;
-				curr[k].min2 = MAX_VAL;
+				curr[k].min1 = 10000;
+				curr[k].min2 = 10000;
 				curr[k].pos  = 0;
 				curr[k].sign = 0;
 			}

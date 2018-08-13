@@ -25,7 +25,9 @@ enum  DEC_ID
 	TASP_DEC,
 	LMS_DEC,
 	LCHE_DEC,
-	IL_MS_DEC
+	IL_MS_DEC,
+	ILCHE_DEC,
+
 };
 
 extern char const * const DEC_FULL_NAME[];
@@ -146,6 +148,12 @@ typedef struct
 	double  *lche_soft_out;
 	double  **lche_state;
 
+	// integer Low complexity-high efficienty Decoder
+	int  *ilche_data0;
+	double	*ilche_tmp;
+	int  *ilche_soft_out;
+	int  **ilche_state;
+
 }DEC_STATE;
 
 
@@ -158,6 +166,7 @@ int imin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter,
 int lmin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta );    
 int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits );    
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxiter );    
+int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps );
 
 
 void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
