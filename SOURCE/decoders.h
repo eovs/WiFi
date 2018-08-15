@@ -15,19 +15,10 @@
 
 enum  DEC_ID
 {
-	BP_DEC, 
-	SP_DEC, 
-	ASP_DEC, 
-	MS_DEC,
-	IMS_DEC,
-	IASP_DEC,
-	FHT_DEC,
-	TASP_DEC,
 	LMS_DEC,
+	ILMS_DEC,
 	LCHE_DEC,
-	IL_MS_DEC,
 	ILCHE_DEC,
-
 };
 
 extern char const * const DEC_FULL_NAME[];
@@ -102,25 +93,6 @@ typedef struct
 	double *min_abs_llr;
 	double *prev_soft;
 //#endif
-
-	// Min-Sum Decoder
-	MS_DATA *ms_soft;
-	int	*ms_BnNS;
-	MS_DEC_STATE *ms_dcs;
-	MS_DEC_STATE *ms_tmps;
-	MS_DATA *ms_buffer;
-	MS_DATA *ms_rbuffer;
-	MS_DATA *ms_rsoft;
-
-	// Integer Min-Sum Decoder
-	IMS_DATA *ims_soft;
-	int	 *ims_BnNS;
-	IMS_DATA *ims_y;
-	IMS_DEC_STATE *ims_dcs;
-	IMS_DEC_STATE *ims_tmps;
-	IMS_DATA *ims_buffer;
-	IMS_DATA *ims_rbuffer;
-	IMS_DATA *ims_rsoft;
 
 	// Layered Min-Sum Decoder
 	MS_DATA *lms_soft;

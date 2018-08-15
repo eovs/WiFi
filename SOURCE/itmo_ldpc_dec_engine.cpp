@@ -15,7 +15,7 @@ void  itmo_ldpc_dec_engine_t::init(const std::vector<std::vector<int>>&check_mat
 {
 	int nrow = (int)check_matrix.size();
 	int ncol = (int)check_matrix[0].size();
-	dec_state = decod_open( IL_MS_DEC, 1, nrow, ncol, z );
+	dec_state = decod_open( ILMS_DEC, 1, nrow, ncol, z );
 	
 	for( int i = 0; i < nrow; i++ )
 		for( int j = 0; j < ncol; j++ )

@@ -172,7 +172,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\SOURCE\decoders.h" />
+    <ClInclude Include="..\..\SOURCE\encode_qc.h" />
     <ClInclude Include="..\..\SOURCE\itmo_ldpc_dec_engine.h" />
+    <ClInclude Include="..\..\SOURCE\LDPC_dec_engine.h" />
+    <ClInclude Include="..\..\SOURCE\matrix.h" />
+    <ClInclude Include="..\..\SOURCE\modulation.h" />
     <ClInclude Include="..\..\SOURCE\params.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />

@@ -254,7 +254,7 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 			return NULL;
 		break;
 
-	case IL_MS_DEC:
+	case ILMS_DEC:
 		st->ilms_y = (IMS_DATA*)calloc(N, sizeof(st->ilms_y[0]) );
 		if( !st->ilms_y )
 			return NULL;
@@ -416,7 +416,7 @@ void decod_close( DEC_STATE* st )
 		if( st->lms_rsoft )   { free(st->lms_rsoft);   st->lms_rsoft   = NULL; }
 		break;
 
-	case IL_MS_DEC:
+	case ILMS_DEC:
 		if( st->ilms_y )       { free(st->ilms_y);       st->ilms_y       = NULL; }
 		if( st->ilms_decword ) { free(st->ilms_decword); st->ilms_decword = NULL; }
 		if( st->ilms_soft )    { free(st->ilms_soft);    st->ilms_soft    = NULL; }
