@@ -4,6 +4,10 @@ wifi/wifi/x64
 wifi/wifi/*.user
 wifi/wifi/*.filters
 KILLME
+decoders/x64
+decoders/*.user
+decoders/*.filters
+
 
 
 

@@ -12,16 +12,10 @@
 
 char const * const DEC_FULL_NAME[] = 
 {
-    "Belief Propagation",
-    "Sum-Product",
-    "Advanced Sum-Product",
-    "Min-Sum",
-    "Integer Min-Sum",
-    "Integer Advanced Sum-Product",
-    "FHT Sum-Product",
-    "TDMP Advanced Sum-Product",
 	"Layered Min-Sum",
-	"Low complexity-high efficiency"
+	"Integer Layered Min-Sum",
+	"Layered Sum-Prod"
+	"Integer Layered Sum-Prod"
 };
 
 
