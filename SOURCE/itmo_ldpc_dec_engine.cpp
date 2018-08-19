@@ -1,5 +1,3 @@
-#include "stdafx.h"
-
 #include <vector>
 
 #include "itmo_ldpc_dec_engine.h"

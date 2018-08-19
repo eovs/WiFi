@@ -1,15 +1,16 @@
-wifi/.vs
-wifi/x64
-wifi/wifi/x64
-wifi/wifi/*.user
-wifi/wifi/*.filters
+.vs
+Simul/x64
+Simul/*.user
+Simul/*.filters
 KILLME
-decoders/x64
-decoders/*.user
-decoders/*.filters
-tools/x64
-tools/*.user
-tools/*.filters
+ITMO_TOOLS/x64
+ITMO_TOOLS/*.user
+ITMO_TOOLS/*.filters
+KILLME
+X64
+release
+debug
+
 
 
 

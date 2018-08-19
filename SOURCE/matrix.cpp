@@ -1,6 +1,5 @@
-#include "stdafx.h"
-
 #include "matrix.h"
+#include <stdio.h>
 
 int H1x2m27[12][24] = 
 {
