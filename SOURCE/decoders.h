@@ -2,16 +2,6 @@
 #define _DECODERS_H_
 
 
-//#define ORIG_TABLES
-
-#define DEC_DECISION 0	// 0 - hard decision, 1 - soft decision
-
-//#define BP_USE_EPS	// be careful!!!
-
-#define IASP_FIXED_POINT
-
-#define MS_MUL_CORRECTION
-#define MS_ALPHA_FPP 4
 
 enum  DEC_ID
 {
@@ -25,21 +15,6 @@ extern char const * const DEC_FULL_NAME[];
 
 
 #define SKIP  -1
-#define TRUE_CIRCULANT
-
-/*
-#ifdef MS_MUL_CORRECTION
-#define MS_ALPHA 0.8
-#else
-#define MS_ALPHA 0.02//0.075//0.02
-#endif
-*/
-#define MS_ALPHA 0.8//0.8
-#define MS_BETA  0.4
-
-#define MS_THR   1.4
-#define MS_QBITS 6//6//5//6  6 - for qantenne
-#define MS_DBITS (MS_QBITS + 2) //16
 
 
 typedef unsigned int        ui32;

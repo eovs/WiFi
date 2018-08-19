@@ -2,7 +2,7 @@
 
 #include <string.h>
 #include <math.h>
-#include <assert.h>
+//#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -18,43 +18,33 @@ char const * const DEC_FULL_NAME[] =
 	"Integer Layered Sum-Prod"
 };
 
+#define LOG_FPP 12
+#define ONE_LOG	(1 << LOG_FPP)
+
+#define ILOG(x) ( (int)((x)*ONE_LOG + 0.5) )
+
+#define IL_SOFT_FPP	1
+#define IL_SOFT_ONE (1 << IL_SOFT_FPP)
 
 
-#define INP_FPP  16
-#define ONE_INP (1 << INP_FPP)
 
-#define PROB_FPP 16//16 //28  // less than 30 !!!
-#define ONE_PROB (1 << PROB_FPP)
+#define ILCHE_SOFT_FPP	8 // bits per soft
+#define ONE_ILCHE_SOFT (1 << ILCHE_SOFT_FPP)
+#define ILCHE_INNER_FPP 8 // bits per inner variables
+#define ONE_ILCHE_INNER (1 << ILCHE_INNER_FPP)
 
-#define MAP_FPP  16//14//24
-#define ONE_MAP (1 << MAP_FPP)
-
-#define HAD_FPP 16//14
-#define ONE_HAD (1 << HAD_FPP)
-
-#define TMP_FPP 20
-#define ONE_TMP (1 << TMP_FPP)
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#define QMAX  256
-#define RWMAX 64
-
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 #define div_power2( x, n )    ((x) >> (n))
 #define div_power2r( x, n )   (((x) + (1 << (n-1))) >> (n))
 
-#define SOFT_FPP 12
-#define P_FPP    32//32
+#define MY_VERSION
+//#define ALPHA 0.8
+//#define BETA  0.35 
 
+#define ALPHA 1.0
+#define BETA  0.4
 
-#define MAX_UI16 0x7fff
-#define ONE_SOFT (1 << SOFT_FPP)
-
-
-#define MAX_SOFT (ONE_SOFT - 1) 
-#define IASP_DEC_MAX_VAL (ONE_SOFT - 1)
 
 
 #define INPUT_LIMIT 20.0
@@ -66,6 +56,7 @@ char const * const DEC_FULL_NAME[] =
 #define maxi( a, b )  (a) < (b) ? (b) : (a)
 #define mini( a, b )  (b) < (a) ? (b) : (a)
 
+#define limit_val( x, max_val )	(x) > max_val ? max_val : ((x) < -max_val ? -max_val : (x))
 
 static double mind(double a, double b) {if (a<b) return a; else return b;}
 static double maxd(double a, double b) {if (a<b) return b; else return a;}
@@ -75,7 +66,7 @@ static double absd (double x)
 }
 
 
-void update_statistics( double *prev_soft, double *curr_soft, double *sign_counter, double *min_abs_llr, double thr, int n )
+static void update_statistics( double *prev_soft, double *curr_soft, double *sign_counter, double *min_abs_llr, double thr, int n )
 {
 	int i;
 	for( i = 0; i < n; i++ )
@@ -89,47 +80,51 @@ void update_statistics( double *prev_soft, double *curr_soft, double *sign_count
 }
 
 
-double** Alloc2d_double( int b, int c )
+static double** Alloc2d_double( int b, int c )
 {
 	double **p;
 	int i;
 
-	p = (double**)calloc( b, sizeof(double*) );
-	assert(p);
-	p[0] = (double*)calloc( b*c, sizeof(double) );
+//	p = (double**)calloc( b, sizeof(double*) );
+	p = (double**)malloc( b * sizeof(double*) );
+	//assert(p);
+//	p[0] = (double*)calloc( b*c, sizeof(double) );
+	p[0] = (double*)malloc( b*c*sizeof(double) );
 	for( i = 1; i < b; i++ )
 	{
 		p[i] = p[i-1] + c;
-		assert( p[i] );
+		//assert( p[i] );
 	}
 	return p;
 }
 
 
-int** Alloc2d_int( int b, int c )
+static int** Alloc2d_int( int b, int c )
 {
 	int **p;
 	int i;
 
-	p = (int**)calloc( b, sizeof(int*) );
-	assert(p);
-	p[0] = (int*)calloc( b*c, sizeof(int) );
+//	p = (int**)calloc( b, sizeof(int*) );
+	p = (int**)malloc( b * sizeof(int*) );
+	//assert(p);
+//	p[0] = (int*)calloc( b*c, sizeof(int) );
+	p[0] = (int*)malloc( b*c*sizeof(int) );
 	for( i = 1; i < b; i++ )
 	{
 		p[i] = p[i-1] + c;
-		assert( p[i] );
+		//assert( p[i] );
 	}
 	return p;
 }
 
 
-void free2d_int( int **p )
+static void free2d_int( int **p )
 {
 	free( p[0] );
 	free( p );
 }
 
-void free2d_double( double **p )
+static void free2d_double( double **p )
 {
 	free( p[0] );
 	free( p );
@@ -147,7 +142,7 @@ void rotate_sign( int x[], int y[], int shift, int M )
 	memcpy( y+(M-shift), x, shift*sizeof(y[0]));
 }
 */
-void rotate_data( double x[], double y[], int shift, int M )
+static void rotate_data( double x[], double y[], int shift, int M )
 {
 	while( shift < 0 )
 		shift += M;
@@ -159,7 +154,7 @@ void rotate_data( double x[], double y[], int shift, int M )
 	memcpy( y+(M-shift), x, shift*sizeof(y[0]));
 }
 
-void rotate( void *x, void *y, int shift, int size, int M )
+static void rotate( void *x, void *y, int shift, int size, int M )
 {
 	int shift1;
 	int shift2;
@@ -189,7 +184,9 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 	int BBsize = (mh > nh - mh) ? mh : nh - mh;
 
 
-    st = (DEC_STATE*)calloc( 1, sizeof(DEC_STATE) );
+//    st = (DEC_STATE*)calloc( 1, sizeof(DEC_STATE) );
+    st = (DEC_STATE*)malloc( sizeof(DEC_STATE) );
+	memset( st, 0, sizeof(DEC_STATE) );
     if( !st ) 
         return NULL;
 
@@ -205,13 +202,14 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 		return NULL;
 
 #ifdef KEEP_STATISTIC
-	st->sign_counter = (double*)calloc(N, sizeof(st->sign_counter[0]));
-	st->min_abs_llr = (double*)calloc(N, sizeof(st->min_abs_llr[0]));
-	st->prev_soft = (double*)calloc(N, sizeof(st->prev_soft[0]));
+//	st->sign_counter = (double*)calloc(N, sizeof(st->sign_counter[0]));
+//	st->min_abs_llr = (double*)calloc(N, sizeof(st->min_abs_llr[0]));
+//	st->prev_soft = (double*)calloc(N, sizeof(st->prev_soft[0]));
 #endif
 
 
-	st->syndr = (int*)calloc(R, sizeof(st->syndr[0]) );
+//	st->syndr = (int*)calloc(R, sizeof(st->syndr[0]) );
+	st->syndr = (int*)malloc(R * sizeof(st->syndr[0]) );
 	if( !st->syndr )
 		return NULL;
     
@@ -219,84 +217,103 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 	switch( codec_id )
 	{
 	case LMS_DEC:
-		st->lms_soft = (MS_DATA*)calloc(N, sizeof(st->lms_soft[0]) );
+//		st->lms_soft = (MS_DATA*)calloc(N, sizeof(st->lms_soft[0]) );
+		st->lms_soft = (MS_DATA*)malloc(N * sizeof(st->lms_soft[0]) );
 		if( !st->lms_soft )
 			return NULL;
 
-		st->lms_BnNS = (int*)calloc(mh*N, sizeof( st->lms_BnNS[0] ) );
+//		st->lms_BnNS = (int*)calloc(mh*N, sizeof( st->lms_BnNS[0] ) );
+		st->lms_BnNS = (int*)malloc(mh*N* sizeof( st->lms_BnNS[0] ) );
 		if( !st->lms_BnNS )
 			return NULL;
 
-		st->lms_dcs = (MS_DEC_STATE*)calloc(R, sizeof( st->lms_dcs[0] ) );
+//		st->lms_dcs = (MS_DEC_STATE*)calloc(R, sizeof( st->lms_dcs[0] ) );
+		st->lms_dcs = (MS_DEC_STATE*)malloc(R* sizeof( st->lms_dcs[0] ) );
 		if( !st->lms_dcs )
 			return NULL;
 
-		st->lms_tmps = (MS_DEC_STATE*)calloc(M, sizeof( st->lms_tmps[0] ) );
+//		st->lms_tmps = (MS_DEC_STATE*)calloc(M, sizeof( st->lms_tmps[0] ) );
+		st->lms_tmps = (MS_DEC_STATE*)malloc(M* sizeof( st->lms_tmps[0] ) );
 		if( !st->lms_tmps )
 			return NULL;
 
-		st->lms_buffer = (MS_DATA*)calloc(M, sizeof(st->lms_buffer[0]) );
+//		st->lms_buffer = (MS_DATA*)calloc(M, sizeof(st->lms_buffer[0]) );
+		st->lms_buffer = (MS_DATA*)malloc(M* sizeof(st->lms_buffer[0]) );
 		if( !st->lms_buffer )
 			return NULL;
 
-		st->lms_rbuffer = (MS_DATA*)calloc(M, sizeof(st->lms_rbuffer[0]) );
+//		st->lms_rbuffer = (MS_DATA*)calloc(M, sizeof(st->lms_rbuffer[0]) );
+		st->lms_rbuffer = (MS_DATA*)malloc(M* sizeof(st->lms_rbuffer[0]) );
 		if( !st->lms_rbuffer )
 			return NULL;
 
-		st->lms_rsoft = (MS_DATA*)calloc(M, sizeof(st->lms_rsoft[0]) );
+//		st->lms_rsoft = (MS_DATA*)calloc(M, sizeof(st->lms_rsoft[0]) );
+		st->lms_rsoft = (MS_DATA*)malloc(M* sizeof(st->lms_rsoft[0]) );
 		if( !st->lms_rsoft )
 			return NULL;
 		break;
 
 	case ILMS_DEC:
-		st->ilms_y = (IMS_DATA*)calloc(N, sizeof(st->ilms_y[0]) );
+//		st->ilms_y = (IMS_DATA*)calloc(N, sizeof(st->ilms_y[0]) );
+		st->ilms_y = (IMS_DATA*)malloc(N* sizeof(st->ilms_y[0]) );
 		if( !st->ilms_y )
 			return NULL;
 
-		st->ilms_decword = (IMS_DATA*)calloc(N, sizeof(st->ilms_decword[0]) );
+//		st->ilms_decword = (IMS_DATA*)calloc(N, sizeof(st->ilms_decword[0]) );
+		st->ilms_decword = (IMS_DATA*)malloc(N* sizeof(st->ilms_decword[0]) );
 		if( !st->ilms_decword )
 			return NULL;
 
-		st->ilms_soft = (IMS_DATA*)calloc(N, sizeof(st->ilms_soft[0]) );
+//		st->ilms_soft = (IMS_DATA*)calloc(N, sizeof(st->ilms_soft[0]) );
+		st->ilms_soft = (IMS_DATA*)malloc(N* sizeof(st->ilms_soft[0]) );
 		if( !st->ilms_soft )
 			return NULL;
 
-		st->ilms_BnNS = (int*)calloc(mh*N, sizeof( st->ilms_BnNS[0] ) );
+//		st->ilms_BnNS = (int*)calloc(mh*N, sizeof( st->ilms_BnNS[0] ) );
+		st->ilms_BnNS = (int*)malloc(mh*N* sizeof( st->ilms_BnNS[0] ) );
 		if( !st->ilms_BnNS )
 			return NULL;
 
-		st->ilms_dcs = (IMS_DEC_STATE*)calloc(R, sizeof( st->ilms_dcs[0] ) );
+//		st->ilms_dcs = (IMS_DEC_STATE*)calloc(R, sizeof( st->ilms_dcs[0] ) );
+		st->ilms_dcs = (IMS_DEC_STATE*)malloc(R* sizeof( st->ilms_dcs[0] ) );
 		if( !st->ilms_dcs )
 			return NULL;
 
-		st->ilms_tmps = (IMS_DEC_STATE*)calloc(M, sizeof( st->ilms_tmps[0] ) );
+//		st->ilms_tmps = (IMS_DEC_STATE*)calloc(M, sizeof( st->ilms_tmps[0] ) );
+		st->ilms_tmps = (IMS_DEC_STATE*)malloc(M* sizeof( st->ilms_tmps[0] ) );
 		if( !st->ilms_tmps )
 			return NULL;
 
-		st->ilms_buffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_buffer[0]) );
+//		st->ilms_buffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_buffer[0]) );
+		st->ilms_buffer = (IMS_DATA*)malloc(M* sizeof(st->ilms_buffer[0]) );
 		if( !st->ilms_buffer )
 			return NULL;
 
-		st->ilms_rbuffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_rbuffer[0]) );
+//		st->ilms_rbuffer = (IMS_DATA*)calloc(M, sizeof(st->ilms_rbuffer[0]) );
+		st->ilms_rbuffer = (IMS_DATA*)malloc(M* sizeof(st->ilms_rbuffer[0]) );
 		if( !st->ilms_rbuffer )
 			return NULL;
 
-		st->ilms_rsoft = (IMS_DATA*)calloc(M, sizeof(st->ilms_rsoft[0]) );
+//		st->ilms_rsoft = (IMS_DATA*)calloc(M, sizeof(st->ilms_rsoft[0]) );
+		st->ilms_rsoft = (IMS_DATA*)malloc(M* sizeof(st->ilms_rsoft[0]) );
 		if( !st->ilms_rsoft )
 			return NULL;
 		break;
 
 
 	case LCHE_DEC:
-		st->lche_data0 = (double*)calloc(N, sizeof( st->lche_data0[0] ) );
+//		st->lche_data0 = (double*)calloc(N, sizeof( st->lche_data0[0] ) );
+		st->lche_data0 = (double*)malloc(N* sizeof( st->lche_data0[0] ) );
 		if(!st->lche_data0 )
 			return NULL;
 
-		st->lche_tmp = (double*)calloc(nh, sizeof( st->lche_tmp[0] ) );
+//		st->lche_tmp = (double*)calloc(nh, sizeof( st->lche_tmp[0] ) );
+		st->lche_tmp = (double*)malloc(nh* sizeof( st->lche_tmp[0] ) );
 		if(!st->lche_tmp )
 			return NULL;
 
-		st->lche_soft_out = (double*)calloc(N, sizeof(st->lche_soft_out[0]) );
+//		st->lche_soft_out = (double*)calloc(N, sizeof(st->lche_soft_out[0]) );
+		st->lche_soft_out = (double*)malloc(N* sizeof(st->lche_soft_out[0]) );
 		if( !st->lche_soft_out )
 			return NULL;
 
@@ -306,15 +323,18 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
 		break;
 
 	case ILCHE_DEC:
-		st->ilche_data0 = (int*)calloc(N, sizeof( st->ilche_data0[0] ) );
+//		st->ilche_data0 = (int*)calloc(N, sizeof( st->ilche_data0[0] ) );
+		st->ilche_data0 = (int*)malloc(N* sizeof( st->ilche_data0[0] ) );
 		if(!st->ilche_data0 )
 			return NULL;
 
-		st->ilche_tmp = (int*)calloc(nh, sizeof( st->ilche_tmp[0] ) );
+//		st->ilche_tmp = (int*)calloc(nh, sizeof( st->ilche_tmp[0] ) );
+		st->ilche_tmp = (int*)malloc(nh* sizeof( st->ilche_tmp[0] ) );
 		if(!st->ilche_tmp )
 			return NULL;
 
-		st->ilche_soft_out = (int*)calloc(N, sizeof(st->ilche_soft_out[0]) );
+//		st->ilche_soft_out = (int*)calloc(N, sizeof(st->ilche_soft_out[0]) );
+		st->ilche_soft_out = (int*)malloc(N* sizeof(st->ilche_soft_out[0]) );
 		if( !st->ilche_soft_out )
 			return NULL;
 
@@ -330,7 +350,7 @@ DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
     
 }
 
-void check_syndrome( int **matr, int rh, int nh, MS_DATA *soft, MS_DATA *rsoft, int m_ldpc, int *synd )
+static void check_syndrome( int **matr, int rh, int nh, MS_DATA *soft, MS_DATA *rsoft, int m_ldpc, int *synd )
 {
 	int k, j, n;
 
@@ -467,7 +487,7 @@ static double C[] =
 	3.71, 3.67, 3.64, 3.60, 3.56, 3.53, 3.50, 3.47
 };
 
-static inline MS_DATA logexp_int( MS_DATA x )
+static MS_DATA logexp_int( MS_DATA x )
 {
     if( x <= 0 ) x = 1.0/4096.0;
 	if( x > 16.0 ) x = 16.0;
@@ -496,7 +516,7 @@ static inline MS_DATA logexp_int( MS_DATA x )
 
 
 
-void map_bin_llr(MS_DATA y[], int n )
+static void map_bin_llr(MS_DATA y[], int n )
 {
 	int i;
 	static int hard[1024];
@@ -665,13 +685,9 @@ int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 }
 
 
-#define ILCHE_SOFT_FPP	8 // bits per soft
-#define ONE_ILCHE_SOFT (1 << ILCHE_SOFT_FPP)
-#define ILCHE_INNER_FPP 8 // bits per inner variables
-#define ONE_ILCHE_INNER (1 << ILCHE_INNER_FPP)
 
 
-static inline int d2i( double val, int one_fpp )
+static int d2i( double val, int one_fpp )
 {
 	double absval = val < 0.0 ? -val : val;
 	int    sign   = val < 0.0 ? 1 : 0;
@@ -679,10 +695,6 @@ static inline int d2i( double val, int one_fpp )
 	return sign ? -iabsval : iabsval;
 }
 
-#define LOG_FPP 12
-#define ONE_LOG	(1 << LOG_FPP)
-
-#define ILOG(x) ( (int)((x)*ONE_LOG + 0.5) )
 
 static int iA[] = 
 {	
@@ -708,7 +720,7 @@ static int iC[] =
 	ILOG(3.71), ILOG(3.67), ILOG(3.64), ILOG(3.60), ILOG(3.56), ILOG(3.53), ILOG(3.50), ILOG(3.47)
 };
 
-static inline MS_DATA ilogexp_int( int ix )
+static MS_DATA ilogexp_int( int ix )
 {
 	if( ix <= 0 ) ix = ONE_LOG/4096;
 	if( ix > 16.0*ONE_LOG ) ix = ONE_LOG * 16;
@@ -734,7 +746,7 @@ static inline MS_DATA ilogexp_int( int ix )
 			}
 }
 
-void imap_bin_llr( int y[], int n )
+static void imap_bin_llr( int y[], int n )
 {
 	int i;
 	static int hard[1024];
@@ -912,10 +924,9 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps )
 
 
 
-#define limit_val( x, max_val )	(x) > max_val ? max_val : ((x) < -max_val ? -max_val : (x))
 
 
-void process_check_node( MS_DEC_STATE *curr, int curr_v2c_sign, MS_DATA abs_curr_v2c, int index )
+static void process_check_node( MS_DEC_STATE *curr, int curr_v2c_sign, MS_DATA abs_curr_v2c, int index )
 {
 	curr->sign ^= curr_v2c_sign;
 
@@ -932,7 +943,7 @@ void process_check_node( MS_DEC_STATE *curr, int curr_v2c_sign, MS_DATA abs_curr
 	}
 }
 
-void iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_curr_v2c, int index )
+static void iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_curr_v2c, int index )
 {
 	curr->sign ^= curr_v2c_sign;
 
@@ -950,14 +961,8 @@ void iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_c
 }
 
 
-#define MY_VERSION
-//#define ALPHA 0.8
-//#define BETA  0.35 
 
-#define ALPHA 1.0
-#define BETA  0.4
-
-MS_DATA	get_c2v_val( int sign, int pos, MS_DEC_STATE *stat, double alpha, double beta )
+static MS_DATA	get_c2v_val( int sign, int pos, MS_DEC_STATE *stat, double alpha, double beta )
 {
 	MS_DATA c2v_abs  = stat->pos == pos ? stat->min2 : stat->min1;
 
@@ -968,7 +973,7 @@ MS_DATA	get_c2v_val( int sign, int pos, MS_DEC_STATE *stat, double alpha, double
 	return sign ? -c2v_abs : c2v_abs;
 }
 
-double beta_control( MS_DEC_STATE *state )
+static double beta_control( MS_DEC_STATE *state )
 {
 	double beta = 0.4;
 #if 0
@@ -1340,8 +1345,6 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 	return parity ? -iter : iter+1; 
 }
 
-#define IL_SOFT_FPP	1
-#define IL_SOFT_ONE (1 << IL_SOFT_FPP)
 
 void il_min_sum_init( IMS_DEC_STATE *prev, int r, int *signs, int n )
 {

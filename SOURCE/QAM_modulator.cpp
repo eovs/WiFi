@@ -9,7 +9,7 @@
 
 static int Qav[4] = { 4, 16, 64, 256 };
 
-int findQ( int q )
+static int findQ( int q )
 {
     for( int i = 0; i < 4; i++ )
     {
@@ -26,7 +26,9 @@ QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m )
     QAM_MODULATOR_STATE* st;
     int i,j;
     
-    st = (QAM_MODULATOR_STATE*)calloc(sizeof(QAM_MODULATOR_STATE),1);
+//    st = (QAM_MODULATOR_STATE*)calloc(sizeof(QAM_MODULATOR_STATE),1);
+    st = (QAM_MODULATOR_STATE*)malloc(sizeof(QAM_MODULATOR_STATE));
+	memset( st, 0, sizeof(QAM_MODULATOR_STATE) );
     if( !st ) return NULL;
     
     st->Lorg = L;
@@ -40,18 +42,22 @@ QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m )
         st->Lfact = L;
     st->ns = st->Lfact / m;
     
-    st->x = (int*)calloc( st->Lfact, sizeof(st->x[0]) );
+//    st->x = (int*)calloc( st->Lfact, sizeof(st->x[0]) );
+    st->x = (int*)malloc( st->Lfact * sizeof(st->x[0]) );
     if( !st->x ) return NULL;
     
-    st->z1 = (int*)calloc( st->ns, sizeof(st->z1[0]));
+//    st->z1 = (int*)calloc( st->ns, sizeof(st->z1[0]));
+    st->z1 = (int*)malloc( st->ns * sizeof(st->z1[0]));
     if( !st->z1 ) return NULL;
-    st->z2 = (int*)calloc( st->ns, sizeof(st->z2[0]));
+//    st->z2 = (int*)calloc( st->ns, sizeof(st->z2[0]));
+    st->z2 = (int*)malloc( st->ns * sizeof(st->z2[0]));
     if( !st->z2 ) return NULL;
     
     for( i = m/2-1, j = 0; i>= 0; i--, j++ )
         st->p[j] = 1<<i;
     
-    st->dx = (int*)calloc( st->Lfact, sizeof(st->dx[0]) );
+//    st->dx = (int*)calloc( st->Lfact, sizeof(st->dx[0]) );
+    st->dx = (int*)malloc( st->Lfact * sizeof(st->dx[0]) );
     return st;
     
 }

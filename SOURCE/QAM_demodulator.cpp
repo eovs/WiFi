@@ -24,7 +24,9 @@ QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int 
 {
     QAM_DEMODULATOR_STATE* st;
     
-    st = (QAM_DEMODULATOR_STATE*)calloc(1, sizeof(QAM_DEMODULATOR_STATE));
+//    st = (QAM_DEMODULATOR_STATE*)calloc(1, sizeof(QAM_DEMODULATOR_STATE));
+    st = (QAM_DEMODULATOR_STATE*)malloc(sizeof(QAM_DEMODULATOR_STATE));
+    memset(st, 0, sizeof(QAM_DEMODULATOR_STATE));
     if( !st ) return NULL;
     
     st->T = T;
