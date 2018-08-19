@@ -20,9 +20,9 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{0FFC4FAA-45CD-4BF9-8E3F-D126747F14E3}</ProjectGuid>
+    <ProjectGuid>{0C0B7E22-6823-4474-B195-8ED2AAD4AA64}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>decoders</RootNamespace>
+    <RootNamespace>tools</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -72,19 +72,15 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>D:\Quantenna\WiFi\decoders;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Quantenna\WiFi\decoders;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\Quantenna\WiFi\decoders;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>D:\Quantenna\WiFi\decoders;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -153,12 +149,15 @@
   <ItemGroup>
     <ClInclude Include="..\SOURCE\decoders.h" />
     <ClInclude Include="..\SOURCE\encode_qc.h" />
+    <ClInclude Include="..\SOURCE\modulation.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SOURCE\decoders.cpp" />
-    <ClCompile Include="..\SOURCE\encode_QC_C.cpp" />
+    <ClCompile Include="..\SOURCE\encode_QC.cpp" />
+    <ClCompile Include="..\SOURCE\QAM_demodulator.cpp" />
+    <ClCompile Include="..\SOURCE\QAM_modulator.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

@@ -106,7 +106,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ldpc_dec_enine.lib;decoders.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ldpc_dec_enine.lib;tools.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Quantenna\WiFi\wifi\x64\Release;D:\Quantenna\WiFi\QA_LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -125,7 +125,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ldpc_dec_enine.lib;decoders.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ldpc_dec_enine.lib;tools.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Quantenna\WiFi\wifi\x64\Release;D:\Quantenna\WiFi\QA_LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -148,7 +148,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ldpc_dec_enine.lib;decoders.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ldpc_dec_enine.lib;tools.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Quantenna\WiFi\wifi\x64\Release;D:\Quantenna\WiFi\QA_LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -171,7 +171,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>ldpc_dec_enine.lib;decoders.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>ldpc_dec_enine.lib;tools.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>D:\Quantenna\WiFi\wifi\x64\Release;D:\Quantenna\WiFi\QA_LIB;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -190,8 +190,6 @@
     <ClCompile Include="..\..\SOURCE\itmo_ldpc_dec_engine.cpp" />
     <ClCompile Include="..\..\SOURCE\matrix.cpp" />
     <ClCompile Include="..\..\SOURCE\params.cpp" />
-    <ClCompile Include="..\..\SOURCE\QAM_demodulator.cpp" />
-    <ClCompile Include="..\..\SOURCE\QAM_modulator.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

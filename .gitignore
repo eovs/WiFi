@@ -7,6 +7,9 @@ KILLME
 decoders/x64
 decoders/*.user
 decoders/*.filters
+tools/x64
+tools/*.user
+tools/*.filters
 
 
 
