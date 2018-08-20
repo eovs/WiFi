@@ -21,7 +21,7 @@ char const * const DEC_FULL_NAME[] =
 
 #define ILOG(x) ( (int)((x)*ONE_LOG + 0.5) )
 
-#define IL_SOFT_FPP	1
+
 #define IL_SOFT_ONE (1 << IL_SOFT_FPP)
 
 
@@ -1344,9 +1344,21 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 }
 
 
-void il_min_sum_init( IMS_DEC_STATE *prev, int r, int *signs, int n )
+void il_min_sum_reset( DEC_STATE *st )
 {
-	for( int i = 0; i < r; i++ )
+	int   i;
+	int *y = st->ilms_y;
+	int *signs       = st->ilms_BnNS;  
+	IMS_DEC_STATE *prev = st->ilms_dcs;		
+
+	int m  = st->m;
+	int rh = st->rh;
+	int nh = st->nh;
+	
+	int r_ldpc = m * rh;
+	int n_ldpc = m * nh;
+
+	for( i = 0; i < r_ldpc; i++ )
 	{
 		prev[i].min1 = 0;
 		prev[i].min2 = 0;
@@ -1354,8 +1366,119 @@ void il_min_sum_init( IMS_DEC_STATE *prev, int r, int *signs, int n )
 		prev[i].sign = 0;
 	}
 
-	memset( signs, 0, n*sizeof(signs[0]) );
+	memset( signs, 0, n_ldpc*rh*sizeof(signs[0]) );
 
+}
+
+int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
+{
+	int j, k, n;
+	int **matr         = st->hd;
+	int *synd          = st->syndr; 
+	IMS_DATA *soft     = st->ilms_soft;
+	int *signs       = st->ilms_BnNS;  
+	IMS_DATA *buffer    = st->ilms_buffer;
+	IMS_DATA *rbuffer   = st->ilms_rbuffer;
+	IMS_DATA *rsoft     = st->ilms_rsoft;
+	IMS_DEC_STATE *prev = st->ilms_dcs;		
+	IMS_DEC_STATE *curr = st->ilms_tmps;		
+
+	int dmax = (1 << (inner_data_bits-1)) - 1;
+	IMS_DATA ibeta = (IMS_DATA)(0.5 * IL_SOFT_ONE);// 0.4;
+	
+	int m  = st->m;
+	int rh = st->rh;
+	int nh = st->nh;
+	
+	int m_ldpc = m;
+	int r_ldpc = m * rh;
+	int n_ldpc = m * nh;
+
+	// INIT_STAGE
+	memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+
+	// update statistic
+	for( j = 0; j < rh; j++ )
+	{
+		IMS_DATA *prev_c2v_abs = buffer;
+		int stateOffset = j*m_ldpc;
+
+		for( k = 0; k < m_ldpc; k++ )
+		{
+			curr[k].min1 = 10000;
+			curr[k].min2 = 10000;
+			curr[k].pos  = 0;
+			curr[k].sign = 0;
+		}
+
+
+		for( k = 0; k < nh; k++ )
+		{
+			int memOffset = j * n_ldpc + k * m_ldpc;
+			IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+			int circ = matr[j][k];
+
+			if( circ != SKIP )
+			{
+				rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+				for( n = 0; n < m_ldpc; n++ )
+					prev_c2v_abs[n] = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+				for( n = 0; n < m_ldpc; n++ )
+				{
+					int	prev_c2v_sgn  = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+					IMS_DATA	prev_c2v_val  = prev_c2v_sgn ? -prev_c2v_abs[n] : prev_c2v_abs[n];
+					IMS_DATA curr_v2c_val  = rsoft[n] - prev_c2v_val;
+					int	curr_v2c_sgn = curr_v2c_val < 0;
+					IMS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+					curr_v2c_abs -= ibeta;
+
+					//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
+					curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
+					curr_v2c_abs = curr_v2c_abs > dmax ? dmax : curr_v2c_abs;
+
+					/*curr_v2c*/curr_soft[n] = curr_v2c_val;
+					signs[memOffset+n] = curr_v2c_sgn;
+
+					iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+
+				}  
+			}
+		}
+
+		for( k = 0; k < m_ldpc; k++ )
+			prev[stateOffset+k] = curr[k];
+
+		for( k = 0; k < nh; k++ )
+		{
+			IMS_DATA *curr_c2v_val = buffer;
+			IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+			int memOffset = j * n_ldpc + k * m_ldpc;
+			int circ = matr[j][k];
+
+			if( circ != SKIP )
+			{
+				for( n = 0; n < m_ldpc; n++ )
+				{
+					IMS_DATA curr_c2v_abs = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+					curr_c2v_val[n] = (signs[memOffset+n] ^ prev[stateOffset+n].sign) ? -curr_c2v_abs : curr_c2v_abs;
+				}
+
+				for( n = 0; n < m_ldpc; n++ )
+					buffer[n] = /*curr_v2c*/curr_soft[n] + curr_c2v_val[n];
+
+				rotate( buffer, rbuffer, m_ldpc - circ, sizeof(curr_c2v_val[0]), m_ldpc ); 
+
+				for( n = 0; n < m_ldpc; n++ )
+					curr_soft[n] = rbuffer[n];
+
+			}
+		}
+	}
+
+	return 0;
 }
 
 int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int inner_data_bits )
@@ -1389,7 +1512,8 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 	for( i = 0; i < n_ldpc; i++ )
 		soft[i] = y[i] << IL_SOFT_FPP;
 
-	il_min_sum_init( prev, r_ldpc, signs, rh*n_ldpc );
+//	il_min_sum_reset( prev, r_ldpc, signs, rh*n_ldpc );
+	il_min_sum_reset( st );
 
 #ifdef KEEP_STATISTIC
 	for( i = 0; i < n_ldpc; i++ ) st->prev_soft[i] = soft[i];

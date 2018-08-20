@@ -20,5 +20,7 @@ class itmo_ldpc_dec_engine_t
   
 	private:
 		DEC_STATE *dec_state;
+		int codewordLen;
+		std::vector<bool> *decword;
 };
 #endif _DECODER_H_

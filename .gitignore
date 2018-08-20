@@ -10,6 +10,10 @@ KILLME
 X64
 release
 debug
+ITMO_LDPC_DEC_ENGINE/x64
+ITMO_LDPC_DEC_ENGINE/*.user
+ITMO_LDPC_DEC_ENGINE/*.filters
+
 
 
 

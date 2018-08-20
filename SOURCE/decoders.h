@@ -1,7 +1,7 @@
 #ifndef _DECODERS_H_
 #define _DECODERS_H_
 
-
+#define IL_SOFT_FPP	1
 
 enum  DEC_ID
 {
@@ -117,8 +117,8 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps );
 
 
 void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
-void il_min_sum_init( IMS_DEC_STATE *prev, int r, int *signs, int n );
-
+void il_min_sum_reset( DEC_STATE *st );
+int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits );
 
 
 
