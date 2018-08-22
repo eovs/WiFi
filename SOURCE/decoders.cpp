@@ -7,7 +7,7 @@
 
 #include "decoders.h"
 
-#define CHINA_VERSION
+//#define CHINA_VERSION
 
 char const * const DEC_FULL_NAME[] = 
 {
@@ -1016,8 +1016,188 @@ static IMS_DATA ibeta_control( IMS_DEC_STATE *state )
 	return betaaa;
 }
 
+#ifdef CHINA_VERSION
+int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta )
+{
+	int   i, j, k, n;
+	int iter;
+	int parity;
+	int **matr         = st->hd;
+	int *synd          = st->syndr; 
+	MS_DATA *soft      = st->lms_soft;
+	int *signs         = st->lms_BnNS;  
+	MS_DATA *buffer    = st->lms_buffer;
+	MS_DATA *rbuffer   = st->lms_rbuffer;
+	MS_DATA *rsoft     = st->lms_rsoft;
+	MS_DEC_STATE *prev = st->lms_dcs;		
+	MS_DEC_STATE *curr = st->lms_tmps;		
+
+	static MS_DATA curr_v2c[100000];
+
+	int m  = st->m;
+	int rh = st->rh;
+	int nh = st->nh;
+	
+	int m_ldpc = m;
+	int r_ldpc = m * rh;
+	int n_ldpc = m * nh;
+
+	for( i = 0; i < n_ldpc; i++ )
+		soft[i] = y[i];
+
+	for( i = 0; i < r_ldpc; i++ )
+	{
+		prev[i].min1 = 0;
+		prev[i].min2 = 0;
+		prev[i].pos  = 0;
+		prev[i].sign = 0;
+	}
 
 
+#ifdef KEEP_STATISTIC
+	for( i = 0; i < n_ldpc; i++ ) st->prev_soft[i] = soft[i];
+	for( i = 0; i < n_ldpc; i++ ) st->sign_counter[i] = 0;
+	for( i = 0; i < n_ldpc; i++ ) st->min_abs_llr[i]  = 10000;
+#endif
+
+	memset( signs, 0, rh*n_ldpc*sizeof(signs[0]) );
+
+	// check input codeword
+	memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+	check_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
+
+	parity = 0;
+	for( i = 0; i < r_ldpc; i++ )	parity |= synd[i];
+
+	for( iter = 0; iter < maxsteps; iter++ )
+	{
+		if( parity == 0 )
+			break; 
+
+		// INIT_STAGE
+		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
+
+		// update statistic
+		for( j = 0; j < rh; j++ )
+		{
+			MS_DATA *prev_c2v_abs = buffer;
+			int stateOffset = j*m_ldpc;
+
+			for( k = 0; k < m_ldpc; k++ )
+			{
+				curr[k].min1 = 10000;
+				curr[k].min2 = 10000;
+				curr[k].pos  = 0;
+				curr[k].sign = 0;
+			}
+
+
+			for( k = 0; k < nh; k++ )
+			{
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				MS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+						prev_c2v_abs[n] = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						int	prev_c2v_sgn  = signs[memOffset+n] ^ prev[stateOffset+n].sign;
+						MS_DATA	prev_c2v_val  = prev_c2v_sgn ? -prev_c2v_abs[n] : prev_c2v_abs[n];
+						MS_DATA curr_v2c_val  = rsoft[n] - prev_c2v_val;
+
+						int	curr_v2c_sgn = curr_v2c_val < 0;
+						MS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+						curr_v2c_abs -= beta;
+
+						//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
+						curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
+
+#if 1
+						curr_v2c[k * m_ldpc + n] = curr_v2c_val;
+#else
+						curr_soft[n] = curr_v2c_val;
+#endif
+						signs[memOffset+n] = curr_v2c_sgn;
+
+						process_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+
+					}  
+				}
+			}
+
+			for( k = 0; k < m_ldpc; k++ )
+				prev[stateOffset+k] = curr[k];
+
+			for( k = 0; k < nh; k++ )
+			{
+				MS_DATA *curr_c2v_val = buffer;
+				MS_DATA *curr_soft    = &soft[k * m_ldpc];
+				int memOffset = j * n_ldpc + k * m_ldpc;
+				int circ = matr[j][k];
+
+				if( circ != SKIP )
+				{
+					for( n = 0; n < m_ldpc; n++ )
+					{
+						MS_DATA curr_c2v_abs = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+						curr_c2v_val[n] = (signs[memOffset+n] ^ prev[stateOffset+n].sign) ? -curr_c2v_abs : curr_c2v_abs;
+					}
+
+#if 1
+					for( n = 0; n < m_ldpc; n++ )
+						buffer[n] = curr_v2c[k * m_ldpc + n] + curr_c2v_val[n];
+
+					rotate( buffer, rbuffer, m_ldpc - circ, sizeof(curr_c2v_val[0]), m_ldpc ); 
+					{
+						double omega = 1.0/16.0;
+						double omega1 = 1 + omega;
+						for( n = 0; n < m_ldpc; n++ )
+							curr_soft[n] = rbuffer[n] * omega1 - curr_soft[n] * omega;
+					}
+#else
+					for( n = 0; n < m_ldpc; n++ )
+						buffer[n] = curr_soft[n] + curr_c2v_val[n];
+
+					rotate( buffer, rbuffer, m_ldpc - circ, sizeof(curr_c2v_val[0]), m_ldpc ); 
+
+					for( n = 0; n < m_ldpc; n++ )
+						curr_soft[n] = rbuffer[n];
+#endif
+
+				}
+			}
+		} 
+
+#ifdef KEEP_STATISTIC
+		update_statistics( st->prev_soft, soft, st->sign_counter, st->min_abs_llr, 0.0, n_ldpc );
+#endif
+
+		// check syndrome
+		check_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
+
+		for( parity = 0, i = 0; i < r_ldpc; i++ )
+			parity |= synd[i];
+
+
+		if( parity == 0 )
+			break; 
+
+	} // stage
+
+	
+	for( k = 0; k < n_ldpc; k++ )
+		decword[k] = soft[k] < 0;
+
+	return parity ? -iter : iter+1; 
+}
+#else
 int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta )
 {
 	int   i, j, k, n;
@@ -1372,7 +1552,7 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 
 	return parity ? -iter : iter+1; 
 }
-
+#endif
 
 void il_min_sum_reset( DEC_STATE *st )
 {
