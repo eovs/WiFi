@@ -1582,7 +1582,8 @@ void il_min_sum_reset( DEC_STATE *st )
 
 int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 {
-	int j, k, n;
+	int i, j, k, n;
+	int parity;
 	int **matr         = st->hd;
 	int *synd          = st->syndr; 
 	IMS_DATA *soft     = st->ilms_soft;
@@ -1688,7 +1689,16 @@ int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 		}
 	}
 
-	return 0;
+	// check syndrome
+	icheck_syndrome( matr, rh, nh, soft, rsoft, m_ldpc, synd );  
+
+	for( parity = 0, i = 0; i < r_ldpc; i++ )
+		parity |= synd[i];
+
+	if( parity == 0 )
+		return 2; 
+	else
+		return 1;
 }
 
 

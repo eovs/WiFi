@@ -9,6 +9,13 @@ itmo_ldpc_dec_engine_t::itmo_ldpc_dec_engine_t()
 	dec_state = NULL;
 }
 
+
+itmo_ldpc_dec_engine_t::~itmo_ldpc_dec_engine_t()
+{
+	decod_close(dec_state);
+	dec_state = NULL;
+}
+
 void  itmo_ldpc_dec_engine_t::init(const std::vector<std::vector<int>>&check_matrix, int z)
 {
 	int nrow = (int)check_matrix.size();
@@ -51,13 +58,16 @@ int  itmo_ldpc_dec_engine_t::iterate()
 const std::vector<bool>& itmo_ldpc_dec_engine_t::pull()
 {
 	for( int i = 0; i < codewordLen; i++ )
-		(*decword)[i] = dec_state->ilms_decword[i] != 0;
+		(*decword)[i] = dec_state->ilms_soft[i] < 0;
 	return *decword;
 }
 
 bool  itmo_ldpc_dec_engine_t::calc_parity_check()
 {
 	int parity = 0;
+	int r_ldpc = dec_state->m * dec_state->rh;
+
+	memset( dec_state->syndr, 0, r_ldpc*sizeof(dec_state->syndr[0]) );
 
 	icheck_syndrome( dec_state->hd, dec_state->rh, dec_state->nh, dec_state->ilms_soft, dec_state->ilms_rsoft, dec_state->m, dec_state->syndr );  
 	for( int i = 0; i < dec_state->m * dec_state->rh; i++ )
