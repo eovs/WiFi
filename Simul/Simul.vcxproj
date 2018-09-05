@@ -171,10 +171,12 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\SOURCE\matrix_ext.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SOURCE\matrix.cpp" />
+    <ClCompile Include="..\SOURCE\matrix_ext.cpp" />
     <ClCompile Include="..\SOURCE\params.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>

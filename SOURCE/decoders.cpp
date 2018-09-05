@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "matrix.h"
+#include "matrix_ext.h"
 #include "decoders.h"
 
 //#define CHINA_VERSION
@@ -174,7 +176,7 @@ static void rotate( void *x, void *y, int shift, int size, int M )
 	memcpy( (char*)y + shift2, (char*)x, shift1 );
 }
 
-DEC_STATE* decod_open( int codec_id, int q_bits, int mh, int nh, int M )
+DEC_STATE* decod_open( int codec_id, int mh, int nh, int M )
 {
     DEC_STATE* st;
     
@@ -2237,3 +2239,149 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 	return parity ? -iter : iter+1; 
 }
 #endif //CHINA_VERSION
+
+
+
+#define MAX_STATE 4
+DEC_STATE *state[MAX_STATE];
+int state_num;
+void open_ext_il_minsum( int irate, int M, int num )
+{
+	int i, k, n;
+	CODE_CFG code;
+	int mh, nh;
+	int *matr_ptr;
+
+	state_num = num+1;
+
+	for( i = 0; i < state_num; i++ )
+	{
+		if( i == 0 )
+			code = select_code( irate, M );
+		else
+			code = select_code_ext( irate, M, i );
+
+		mh = code.nrow;
+		nh = code.ncol;
+		
+		state[i] = decod_open( 1, mh, nh, M ); 
+
+		matr_ptr = code.matrix;
+		for( k = 0; k < mh; k++ )
+			for( n = 0; n < nh; n++ )
+				state[i]->hd[k][n] = *matr_ptr++;
+
+	}
+}
+
+
+int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
+{
+	int stn;
+	int iter;
+	int **matr_org = NULL;
+	IMS_DATA *soft_org = NULL;
+	int codelen_org = 0;
+	int rh_org = 0;
+	int nh_org = 0;
+
+	for( stn = 0; stn < state_num; stn++ )
+	{
+		DEC_STATE *dec_state = state[stn];
+
+#if 0
+		iter = il_min_sum_decod_qc_lm( dec_state, dec_input, dec_output, n_iter, alpha, beta, inner_data_bits );
+#else
+		int rh = dec_state->rh;
+		int nh = dec_state->nh;
+		int m  = dec_state->m;
+		int *y = dec_input;
+		int **matr = dec_state->hd;
+		int *syndr = dec_state->syndr;
+		IMS_DATA *soft = dec_state->ilms_soft;
+		IMS_DATA *rsoft = dec_state->ilms_rsoft;
+		int r_ldpc = rh * m;
+		int codelen = nh * m;
+
+		int parity;
+
+		if( stn == 0 )
+		{
+			rh_org = rh;
+			nh_org = nh;
+			matr_org = matr;
+			soft_org = soft;
+			codelen_org = codelen;
+		}
+
+		for( int i = 0; i < codelen; i++ )
+			soft[i] = y[i] << IL_SOFT_FPP; 
+
+		for( int i = 0; i < codelen - codelen_org; i++ )
+			soft[codelen_org + i] = 0;
+
+		il_min_sum_reset( dec_state );
+		
+		for( iter = 0; iter < n_iter; iter++ )
+		{
+			il_min_sum_iterate( dec_state, inner_data_bits );
+
+			memset( dec_state->syndr, 0, r_ldpc * sizeof( syndr[0]) );
+			icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
+//			icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
+		
+			parity = 0;
+			for( int i = 0; i < r_ldpc; i++ )
+			{
+				if( syndr[i] )
+				{
+					parity = 1;
+					break;
+				}
+			}
+
+			if( parity == 0 )
+				break;
+		}
+
+		if( parity == 0 )
+		{
+			if( stn > 0 && stn < state_num )
+			{
+				for( int i = 0; i < codelen_org; i++ )
+					soft_org[i] = soft[i];
+				stn = stn;
+			}
+
+			break;
+		}
+#endif
+	}
+
+	for( int k = 0; k < codelen_org; k++ )
+		dec_output[k] = soft_org[k] < 0;
+
+	if( iter == n_iter )
+		iter = -iter;
+	else
+		iter += 1;
+
+
+	return iter;
+}
+
+
+void close_ext_il_minsum( void )
+{
+	int i;
+
+	decod_close( state[0] );
+
+	for( i = 1; i < state_num; i++ )
+		decod_close( state[i] );
+}
+
+int ext_il_minsum( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits )
+{
+	return maxiter;
+}

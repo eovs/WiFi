@@ -24,7 +24,7 @@ void  itmo_ldpc_dec_engine_t::init(const std::vector<std::vector<int>>&check_mat
 	codewordLen = ncol * z;
 	decword = new vector<bool>(codewordLen);
 
-	dec_state = decod_open( ILMS_DEC, 1, nrow, ncol, z );
+	dec_state = decod_open( ILMS_DEC, nrow, ncol, z );
 	
 	for( int i = 0; i < nrow; i++ )
 		for( int j = 0; j < ncol; j++ )
@@ -70,7 +70,7 @@ bool  itmo_ldpc_dec_engine_t::calc_parity_check()
 	memset( dec_state->syndr, 0, r_ldpc*sizeof(dec_state->syndr[0]) );
 
 	icheck_syndrome( dec_state->hd, dec_state->rh, dec_state->nh, dec_state->ilms_soft, dec_state->ilms_rsoft, dec_state->m, dec_state->syndr );  
-	for( int i = 0; i < dec_state->m * dec_state->rh; i++ )
+	for( int i = 0; i < r_ldpc; i++ )
 	{
 		if( dec_state->syndr[i] )
 		{

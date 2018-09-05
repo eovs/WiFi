@@ -105,7 +105,7 @@ typedef struct
 
 
 // functions prototypes
-DEC_STATE* decod_open( int decoder_id, int q_bits, int mh, int nh, int M );
+DEC_STATE* decod_open( int decoder_id, int mh, int nh, int M );
 int decod_init( void* st );
 void decod_close( DEC_STATE* st );
 int min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha );    
@@ -120,6 +120,9 @@ void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsof
 void il_min_sum_reset( DEC_STATE *st );
 int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits );
 
+void open_ext_il_minsum( int irate, int M, int num );
+int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits );
+void close_ext_il_minsum( void );
 
 
 #endif	//_DECODERS_H_

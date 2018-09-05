@@ -41,6 +41,9 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 		char *ptr = fgets( line, sizeof(line), fp );
 		if( ptr == NULL )
 			break;
+		
+		if( line[0] == '\n' )
+			break;
 
 		sscanf_s( line, "%s%s", name, (int)sizeof(name), val, (int)sizeof(val) );
 
