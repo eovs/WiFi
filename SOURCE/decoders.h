@@ -1,7 +1,7 @@
 #ifndef _DECODERS_H_
 #define _DECODERS_H_
 
-#define IL_SOFT_FPP	1
+#define IL_SOFT_FPP	3
 
 enum  DEC_ID
 {
@@ -42,12 +42,26 @@ typedef struct
 	int sign;
 } MS_DEC_STATE;
 
+#define NREGS 2
+
 typedef struct  
 {
 	IMS_DATA min1; 
 	IMS_DATA min2; 
 	int pos;
 	int sign;
+
+	int sum;
+	int cnt;
+#ifdef NREGS
+	IMS_DATA min1s[NREGS]; 
+	IMS_DATA min2s[NREGS]; 
+	int poss[NREGS];
+	int signs[NREGS];
+	int sums[NREGS];
+	int cnts[NREGS];
+#endif
+
 } IMS_DEC_STATE;
 
 
@@ -56,7 +70,8 @@ typedef struct
 	int nh; 
 	int rh;
 	int m;
-    int n;
+    int codelen;
+	int synd_len;
 	int maxiter;
     int codec_id;
 	int   **hd; 

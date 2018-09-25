@@ -194,7 +194,8 @@ DEC_STATE* decod_open( int codec_id, int mh, int nh, int M )
 	st->nh      = nh;
 	st->rh      = mh;
 	st->m       = M;
-    st->n       = N;
+    st->codelen = N;
+	st->synd_len = R;
     st->codec_id = codec_id;
 
 
@@ -382,6 +383,9 @@ void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsof
 	{
 		int stateOffset = j*m_ldpc;
 
+		for( n = 0; n < m_ldpc; n++ )
+			synd[stateOffset+n] = 0;
+
 		for( k = 0; k < nh; k++ )
 		{
 			int circ = matr[j][k];
@@ -401,7 +405,7 @@ void decod_close( DEC_STATE* st )
 {
 	int nh = st->nh;
 	int mh = st->rh;
-	int N = st->n;
+	int N = st->codelen;
 	int M = st->m;
 	int codec_id = st->codec_id;
 	int R = mh * M;
@@ -959,6 +963,46 @@ static void iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DAT
 		if( abs_curr_v2c < curr->min2 )
 			curr->min2 = abs_curr_v2c;
 	}
+}
+
+static void regs_iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_curr_v2c, int index, int reg )
+{
+	curr->sign ^= curr_v2c_sign;
+
+	curr->sum += abs_curr_v2c;
+	curr->cnt += 1;
+
+
+	if( abs_curr_v2c < curr->min1 )      
+	{
+		curr->pos = index;
+		curr->min2 = curr->min1; 
+		curr->min1 = abs_curr_v2c;
+	}
+	else
+	{
+		if( abs_curr_v2c < curr->min2 )
+			curr->min2 = abs_curr_v2c;
+	}
+
+	//reg = 0;
+
+	curr->signs[reg] ^= curr_v2c_sign;
+	curr->sums[reg] += abs_curr_v2c;
+	curr->cnts[reg] += 1;
+
+	if( abs_curr_v2c < curr->min1s[reg] )      
+	{
+		curr->poss[reg] = index;
+		curr->min2s[reg] = curr->min1s[reg]; 
+		curr->min1s[reg] = abs_curr_v2c;
+	}
+	else
+	{
+		if( abs_curr_v2c < curr->min2s[reg] )
+			curr->min2s[reg] = abs_curr_v2c;
+	}
+
 }
 
 
@@ -1576,11 +1620,233 @@ void il_min_sum_reset( DEC_STATE *st )
 		prev[i].min2 = 0;
 		prev[i].pos  = 0;
 		prev[i].sign = 0;
+
+		prev[i].sum = 1000;
+		prev[i].cnt = 1;
 	}
+
+#ifdef NREGS
+	for( i = 0; i < r_ldpc; i++ )
+	{
+		int j;
+
+		for( j = 0; j < NREGS; j++ )
+		{
+			prev[i].min1s[j] = 0;
+			prev[i].min2s[j] = 0;
+			prev[i].poss[j]  = 0;
+			prev[i].signs[j] = 0;
+		}
+	}
+#endif
 
 	memset( signs, 0, n_ldpc*rh*sizeof(signs[0]) );
 
 }
+
+void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldpc, IMS_DATA beta, int iter, int flag, int region[] )
+{
+	int n;
+	int thr = 6 * (1<<IL_SOFT_FPP);
+	flag = 1;
+
+	for( n = 0; n < m_ldpc; n++ )
+	{
+		int reg = region[n]; 
+
+//		reg = 0;
+		IMS_DATA c2v_abs = prev[n].poss[reg] == pos ? prev[n].min2s[reg] : prev[n].min1s[reg];
+#if 1 // correct
+		c2v_abs -= beta;
+#else
+		IMS_DATA b;
+		if( flag == 0 )
+		{
+			b = beta;
+		}
+		else
+		{
+			if( iter < 1 )
+			{
+				if( prev[n].sum > thr )
+					b = beta;
+				else
+					b = beta;
+			}
+			else
+				b = beta;
+		}
+		c2v_abs -= b;
+#endif
+		if( c2v_abs < 0 ) c2v_abs = 0;
+
+		if( prev[n].cnts[reg] == 1 )
+			c2v_abs = 1;
+
+
+		c2v[n] = sign[n] ^ prev[n].signs[reg] ? -c2v_abs : c2v_abs;
+	}
+}
+
+#define myabs( a ) ((a) > 0 ? (a) : -(a))
+
+void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, int region[] )
+{
+	int k, n;
+	int **matr         = st->hd;
+	IMS_DATA *soft     = st->ilms_soft;
+	int *signs       = st->ilms_BnNS;  
+	IMS_DATA *buffer    = st->ilms_buffer;
+	IMS_DATA *rbuffer   = st->ilms_rbuffer;
+	IMS_DATA *rsoft     = st->ilms_rsoft;
+	IMS_DEC_STATE *prev = st->ilms_dcs;		
+	IMS_DEC_STATE *curr = st->ilms_tmps;		
+
+	int dmax = (1 << (inner_data_bits-1)) - 1;
+	IMS_DATA ibeta = (IMS_DATA)(0.5 * IL_SOFT_ONE);// 0.4;
+	
+	int m  = st->m;
+	int nh = st->nh;
+	
+	int m_ldpc = m;
+	int n_ldpc = m * nh;
+
+	IMS_DATA *prev_c2v = buffer;
+	int stateOffset = layer * m_ldpc;
+	IMS_DATA *curr_v2c;
+
+	static IMS_DATA current_v2c[1000000];
+	static int rregion[100];
+
+	for( k = 0; k < m_ldpc; k++ )
+	{
+		curr[k].min1 = 10000;
+		curr[k].min2 = 10000;
+		curr[k].pos  = 0;
+		curr[k].sign = 0;
+
+		curr[k].sum = 0;
+		curr[k].cnt = 0;
+
+#ifdef NREGS
+
+		for( int j = 0; j < NREGS; j++ )
+		{
+			curr[k].min1s[j] = 10000;
+			curr[k].min2s[j] = 10000;
+			curr[k].poss[j]  = 0;
+			curr[k].signs[j] = 0;
+
+			curr[k].sums[j] = 0;
+			curr[k].cnts[j] = 0;
+		}
+#endif
+
+	}
+
+
+	for( k = 0; k < nh; k++ )
+	{
+		int memOffset = layer * n_ldpc + k * m_ldpc;
+		IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+#if 0
+		curr_v2c     = curr_soft;	//!!!!!!!
+#else
+		curr_v2c = &current_v2c[k * m_ldpc];
+#endif
+		int circ = matr[layer][k];
+
+		if( circ != SKIP )
+		{
+			rotate( &region[k*m_ldpc], rregion, circ, sizeof(region[0]), m_ldpc ); 
+			
+			rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+			iget_c2v( &signs[memOffset], k, &prev[stateOffset], prev_c2v, m_ldpc, ibeta, iter, 0, rregion );
+
+			for( n = 0; n < m_ldpc; n++ )
+			{
+				IMS_DATA curr_v2c_val  = rsoft[n] - prev_c2v[n];
+				int	curr_v2c_sgn = curr_v2c_val < 0;
+				IMS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+
+				if( rregion[n] )
+					n = n;
+
+				//curr_v2c_abs -= ibeta;
+				//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
+				//curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
+
+				curr_v2c_abs = curr_v2c_abs > dmax ? dmax : curr_v2c_abs;
+
+				curr_v2c[n] = curr_v2c_val;
+				signs[memOffset+n] = curr_v2c_sgn;
+
+				//iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+
+				regs_iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k, rregion[n] );
+
+			}  
+		}
+	}
+
+	for( k = 0; k < m_ldpc; k++ )
+	{
+		curr[k].sum /= curr[k].cnt;
+		prev[stateOffset+k] = curr[k];
+	}
+
+	for( k = 0; k < nh; k++ )
+	{
+		IMS_DATA *curr_c2v = buffer;
+		IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+		int memOffset = layer * n_ldpc + k * m_ldpc;
+		int circ = matr[layer][k];
+
+#if 0
+		curr_v2c     = curr_soft;	//!!!!!!!
+#else
+		curr_v2c = &current_v2c[k * m_ldpc];
+#endif
+
+		if( circ != SKIP )
+		{
+			rotate( &region[k*m_ldpc], rregion, circ, sizeof(region[0]), m_ldpc ); 
+
+			iget_c2v( &signs[memOffset], k, &prev[stateOffset], curr_c2v, m_ldpc, ibeta, iter, 1, rregion );
+
+#if 1
+			for( n = 0; n < m_ldpc; n++ )
+			{
+				if( rregion[n] )
+					n = n;
+				buffer[n] = curr_v2c[n] + curr_c2v[n];
+			}
+#else
+			rotate( curr_soft, rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+			for( n = 0; n < m_ldpc; n++ )
+			{
+
+				IMS_DATA x0 = rsoft[n]; 
+				IMS_DATA x1 = curr_v2c[n] + curr_c2v[n];
+				
+				if( iter < 10 && curr[k].sum < 8 && x0 * x1 < 0 )
+					buffer[n] = rsoft[n];
+				else
+					buffer[n] = curr_v2c[n] + curr_c2v[n];
+
+				buffer[n] = curr_v2c[n] + curr_c2v[n];
+			}
+
+#endif
+
+			rotate( buffer, curr_soft, m_ldpc - circ, sizeof(curr_c2v[0]), m_ldpc ); 
+			n=n;
+		}
+	}
+}
+
 
 int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 {
@@ -1607,8 +1873,6 @@ int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 	int r_ldpc = m * rh;
 	int n_ldpc = m * nh;
 
-	// INIT_STAGE
-	memset( synd, 0, r_ldpc*sizeof(synd[0]) );
 
 	// update statistic
 	for( j = 0; j < rh; j++ )
@@ -1625,6 +1889,7 @@ int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 		}
 
 
+#if 01     // true version
 		for( k = 0; k < nh; k++ )
 		{
 			int memOffset = j * n_ldpc + k * m_ldpc;
@@ -1689,6 +1954,56 @@ int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits )
 
 			}
 		}
+#else // experimental version: VERY BAD
+		for( k = 0; k < nh; k++ )
+		{
+			IMS_DATA *curr_c2v_val = buffer;
+			IMS_DATA *curr_soft    = &soft[k * m_ldpc];
+			int memOffset = j * n_ldpc + k * m_ldpc;
+			int circ = matr[j][k];
+
+			if( circ != SKIP )
+			{
+				rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
+
+
+				for( n = 0; n < m_ldpc; n++ )
+				{
+					IMS_DATA curr_c2v_abs = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
+
+					curr_c2v_val[n] = (signs[memOffset+n] ^ prev[stateOffset+n].sign) ? -curr_c2v_abs : curr_c2v_abs;
+
+					buffer[n] = rsoft[n] + curr_c2v_val[n];
+				}
+
+				rotate( buffer, rbuffer, m_ldpc - circ, sizeof(rbuffer[0]), m_ldpc ); 
+
+				for( n = 0; n < m_ldpc; n++ )
+				{
+					IMS_DATA curr_v2c_val  = rsoft[n];
+					int	curr_v2c_sgn = curr_v2c_val < 0;
+					IMS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
+					curr_v2c_abs -= ibeta;
+
+					curr_v2c_abs = curr_v2c_abs < 0 ? 0 : curr_v2c_abs;
+					curr_v2c_abs = curr_v2c_abs > dmax ? dmax : curr_v2c_abs;
+
+					signs[memOffset+n] = curr_v2c_sgn;
+
+					iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
+				}  
+
+
+				for( n = 0; n < m_ldpc; n++ )
+					curr_soft[n] = rbuffer[n];
+
+			}
+		}
+
+		for( k = 0; k < m_ldpc; k++ )
+			prev[stateOffset+k] = curr[k];
+
+#endif
 	}
 
 	// check syndrome
@@ -2274,7 +2589,8 @@ void open_ext_il_minsum( int irate, int M, int num )
 	}
 }
 
-
+#if 0
+// version: iteration by iteration  -  bad idea so far - MUST BE: iter - layer - decoder
 int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
 {
 	int stn;
@@ -2282,8 +2598,177 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 	int **matr_org = NULL;
 	IMS_DATA *soft_org = NULL;
 	int codelen_org = 0;
+	int r_ldpc_org = 0;
 	int rh_org = 0;
 	int nh_org = 0;
+	int parity = 0;
+
+	// load codeword and reset decoder
+	for( stn = 0; stn < state_num; stn++ )
+	{
+		DEC_STATE *dec_state = state[stn];
+		int rh = dec_state->rh;
+		int nh = dec_state->nh;
+		int m  = dec_state->m;
+		int *y = dec_input;
+		int **matr = dec_state->hd;
+		int *syndr = dec_state->syndr;
+		IMS_DATA *soft = dec_state->ilms_soft;
+		IMS_DATA *rsoft = dec_state->ilms_rsoft;
+		int r_ldpc = rh * m;
+		int codelen = nh * m;
+
+		if( stn == 0 )
+		{
+			rh_org = rh;
+			nh_org = nh;
+			matr_org = matr;
+			soft_org = soft;
+			codelen_org = codelen;
+			r_ldpc_org  = r_ldpc;
+		}
+
+		for( int i = 0; i < codelen; i++ )
+			soft[i] = y[i] << IL_SOFT_FPP; 
+
+		for( int i = 0; i < codelen - codelen_org; i++ )
+			soft[codelen_org + i] = 0;
+
+		il_min_sum_reset( dec_state );
+	}
+
+	for( iter = 0; iter < n_iter; iter++ )
+	{
+		for( stn = 0; stn < state_num; stn++ )
+		{
+			DEC_STATE *dec_state = state[stn];
+
+			int rh = dec_state->rh;
+			int nh = dec_state->nh;
+			int m  = dec_state->m;
+			int *y = dec_input;
+			int **matr = dec_state->hd;
+			int *syndr = dec_state->syndr;
+			IMS_DATA *soft = dec_state->ilms_soft;
+			IMS_DATA *rsoft = dec_state->ilms_rsoft;
+			int r_ldpc  = dec_state->synd_len;
+			int codelen = dec_state->codelen;
+
+
+			if( stn > 0 )
+			{
+				for( int i = 0; i < codelen_org; i++ )
+					soft[i] = soft_org[i];
+			}
+
+			il_min_sum_iterate( dec_state, inner_data_bits );
+
+			memset( dec_state->syndr, 0, r_ldpc * sizeof( syndr[0]) );
+//			icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
+			icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
+		
+			parity = 0;
+			for( int i = 0; i < r_ldpc/*_org*/; i++ )
+			{
+				if( syndr[i] )
+				{
+					parity = 1;
+					break;
+				}
+			}
+
+			if( stn > 0 )
+			{
+				for( int i = 0; i < codelen_org; i++ )
+					soft_org[i] = soft[i];
+			}
+
+
+			if( parity == 0 )
+			{
+				if( stn > 0 )
+				{
+					for( int i = 0; i < codelen_org; i++ )
+						soft_org[i] = soft[i];
+					stn = stn;
+				}
+
+				break;
+			}
+		}
+
+		if( parity == 0 )
+			break;
+	}
+
+	for( int k = 0; k < codelen_org; k++ )
+		dec_output[k] = soft_org[k] < 0;
+
+	if( iter == n_iter )
+		iter = -iter;
+	else
+		iter += 1;
+
+
+	return iter;
+}
+#else
+// version: code by code
+int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
+{
+	int stn;
+	int iter;
+	int **matr_org = NULL;
+	IMS_DATA *soft_org = NULL;
+	int codelen_org = 0;
+	int r_ldpc_org = 0;
+	int rh_org = 0;
+	int nh_org = 0;
+
+	static int  region[10000];
+
+	// load codeword and reset decoder
+	for( stn = 0; stn < state_num; stn++ )
+	{
+		DEC_STATE *dec_state = state[stn];
+		int rh = dec_state->rh;
+		int nh = dec_state->nh;
+		int m  = dec_state->m;
+		int *y = dec_input;
+		int **matr = dec_state->hd;
+		int *syndr = dec_state->syndr;
+		IMS_DATA *soft = dec_state->ilms_soft;
+		IMS_DATA *rsoft = dec_state->ilms_rsoft;
+		int r_ldpc = rh * m;
+		int codelen = nh * m;
+
+		if( stn == 0 )
+		{
+			rh_org = rh;
+			nh_org = nh;
+			matr_org = matr;
+			soft_org = soft;
+			codelen_org = codelen;
+			r_ldpc_org = r_ldpc;
+		}
+
+#if 0
+		for( int i = 0; i < codelen; i++ )
+			region[i] = abs( y[i] ) < 1 ? 0 : 1;
+#else
+		for( int i = 0; i < codelen; i++ )
+			region[i] = 0;
+		region[4] = 0;//1;
+#endif
+
+		for( int i = 0; i < codelen; i++ )
+			soft[i] = y[i] << IL_SOFT_FPP; 
+
+		for( int i = 0; i < codelen - codelen_org; i++ )
+			soft[codelen_org + i] = 0;
+
+		il_min_sum_reset( dec_state );
+	}
 
 	for( stn = 0; stn < state_num; stn++ )
 	{
@@ -2300,38 +2785,27 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 		int *syndr = dec_state->syndr;
 		IMS_DATA *soft = dec_state->ilms_soft;
 		IMS_DATA *rsoft = dec_state->ilms_rsoft;
-		int r_ldpc = rh * m;
-		int codelen = nh * m;
-
+		int r_ldpc  = dec_state->synd_len;
+		int codelen = dec_state->codelen;
 		int parity;
 
-		if( stn == 0 )
-		{
-			rh_org = rh;
-			nh_org = nh;
-			matr_org = matr;
-			soft_org = soft;
-			codelen_org = codelen;
-		}
 
-		for( int i = 0; i < codelen; i++ )
-			soft[i] = y[i] << IL_SOFT_FPP; 
-
-		for( int i = 0; i < codelen - codelen_org; i++ )
-			soft[codelen_org + i] = 0;
-
-		il_min_sum_reset( dec_state );
+//		il_min_sum_reset( dec_state );
 		
 		for( iter = 0; iter < n_iter; iter++ )
 		{
-			il_min_sum_iterate( dec_state, inner_data_bits );
+			//il_min_sum_iterate( dec_state, inner_data_bits );
+			int i;
+			for( i = 0; i < rh; i++ )
+				il_min_sum_layer( dec_state, iter, i, inner_data_bits, region );
 
-			memset( dec_state->syndr, 0, r_ldpc * sizeof( syndr[0]) );
+
+			memset( syndr, 0, r_ldpc * sizeof( syndr[0]) );
 			icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
 //			icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
 		
 			parity = 0;
-			for( int i = 0; i < r_ldpc; i++ )
+			for( int i = 0; i < r_ldpc_org; i++ )
 			{
 				if( syndr[i] )
 				{
@@ -2369,6 +2843,7 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 
 	return iter;
 }
+#endif
 
 
 void close_ext_il_minsum( void )
