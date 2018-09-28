@@ -965,7 +965,7 @@ static void iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DAT
 	}
 }
 
-static void regs_iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_curr_v2c, int index, int reg )
+static void regs_iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IMS_DATA abs_curr_v2c, int index )
 {
 	curr->sign ^= curr_v2c_sign;
 
@@ -984,25 +984,6 @@ static void regs_iprocess_check_node( IMS_DEC_STATE *curr, int curr_v2c_sign, IM
 		if( abs_curr_v2c < curr->min2 )
 			curr->min2 = abs_curr_v2c;
 	}
-
-	//reg = 0;
-
-	curr->signs[reg] ^= curr_v2c_sign;
-	curr->sums[reg] += abs_curr_v2c;
-	curr->cnts[reg] += 1;
-
-	if( abs_curr_v2c < curr->min1s[reg] )      
-	{
-		curr->poss[reg] = index;
-		curr->min2s[reg] = curr->min1s[reg]; 
-		curr->min1s[reg] = abs_curr_v2c;
-	}
-	else
-	{
-		if( abs_curr_v2c < curr->min2s[reg] )
-			curr->min2s[reg] = abs_curr_v2c;
-	}
-
 }
 
 
@@ -1625,26 +1606,11 @@ void il_min_sum_reset( DEC_STATE *st )
 		prev[i].cnt = 1;
 	}
 
-#ifdef NREGS
-	for( i = 0; i < r_ldpc; i++ )
-	{
-		int j;
-
-		for( j = 0; j < NREGS; j++ )
-		{
-			prev[i].min1s[j] = 0;
-			prev[i].min2s[j] = 0;
-			prev[i].poss[j]  = 0;
-			prev[i].signs[j] = 0;
-		}
-	}
-#endif
-
 	memset( signs, 0, n_ldpc*rh*sizeof(signs[0]) );
 
 }
 
-void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldpc, IMS_DATA beta, int iter, int flag, int region[] )
+void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldpc, IMS_DATA beta, int iter, int flag )
 {
 	int n;
 	int thr = 6 * (1<<IL_SOFT_FPP);
@@ -1652,10 +1618,9 @@ void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldp
 
 	for( n = 0; n < m_ldpc; n++ )
 	{
-		int reg = region[n]; 
+		IMS_DATA c2v_abs = prev[n].pos == pos ? prev[n].min2 : prev[n].min1;
 
-//		reg = 0;
-		IMS_DATA c2v_abs = prev[n].poss[reg] == pos ? prev[n].min2s[reg] : prev[n].min1s[reg];
+
 #if 1 // correct
 		c2v_abs -= beta;
 #else
@@ -1680,11 +1645,8 @@ void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldp
 #endif
 		if( c2v_abs < 0 ) c2v_abs = 0;
 
-		if( prev[n].cnts[reg] == 1 )
-			c2v_abs = 1;
 
-
-		c2v[n] = sign[n] ^ prev[n].signs[reg] ? -c2v_abs : c2v_abs;
+		c2v[n] = sign[n] ^ prev[n].sign ? -c2v_abs : c2v_abs;
 	}
 }
 
@@ -1716,7 +1678,6 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 	IMS_DATA *curr_v2c;
 
 	static IMS_DATA current_v2c[1000000];
-	static int rregion[100];
 
 	for( k = 0; k < m_ldpc; k++ )
 	{
@@ -1727,21 +1688,6 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 
 		curr[k].sum = 0;
 		curr[k].cnt = 0;
-
-#ifdef NREGS
-
-		for( int j = 0; j < NREGS; j++ )
-		{
-			curr[k].min1s[j] = 10000;
-			curr[k].min2s[j] = 10000;
-			curr[k].poss[j]  = 0;
-			curr[k].signs[j] = 0;
-
-			curr[k].sums[j] = 0;
-			curr[k].cnts[j] = 0;
-		}
-#endif
-
 	}
 
 
@@ -1758,11 +1704,9 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 
 		if( circ != SKIP )
 		{
-			rotate( &region[k*m_ldpc], rregion, circ, sizeof(region[0]), m_ldpc ); 
-			
 			rotate( &soft[k*m_ldpc], rsoft, circ, sizeof(soft[0]), m_ldpc ); 
 
-			iget_c2v( &signs[memOffset], k, &prev[stateOffset], prev_c2v, m_ldpc, ibeta, iter, 0, rregion );
+			iget_c2v( &signs[memOffset], k, &prev[stateOffset], prev_c2v, m_ldpc, ibeta, iter, 0 );
 
 			for( n = 0; n < m_ldpc; n++ )
 			{
@@ -1770,8 +1714,6 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 				int	curr_v2c_sgn = curr_v2c_val < 0;
 				IMS_DATA curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val); //shifting 
 
-				if( rregion[n] )
-					n = n;
 
 				//curr_v2c_abs -= ibeta;
 				//curr_v2c_sgn = curr_v2c_abs < 0 ? 0 : curr_v2c_sgn;
@@ -1784,7 +1726,7 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 
 				//iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
 
-				regs_iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k, rregion[n] );
+				regs_iprocess_check_node( &curr[n], curr_v2c_sgn, curr_v2c_abs, k );
 
 			}  
 		}
@@ -1811,15 +1753,11 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, 
 
 		if( circ != SKIP )
 		{
-			rotate( &region[k*m_ldpc], rregion, circ, sizeof(region[0]), m_ldpc ); 
-
-			iget_c2v( &signs[memOffset], k, &prev[stateOffset], curr_c2v, m_ldpc, ibeta, iter, 1, rregion );
+			iget_c2v( &signs[memOffset], k, &prev[stateOffset], curr_c2v, m_ldpc, ibeta, iter, 1 );
 
 #if 1
 			for( n = 0; n < m_ldpc; n++ )
 			{
-				if( rregion[n] )
-					n = n;
 				buffer[n] = curr_v2c[n] + curr_c2v[n];
 			}
 #else
