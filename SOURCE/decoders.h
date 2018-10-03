@@ -66,12 +66,6 @@ typedef struct
 	int   **hd; 
 	int   *syndr;                     
 
-	
-//#ifdef KEEP_STATISTIC
-	double *sign_counter;
-	double *min_abs_llr;
-	double *prev_soft;
-//#endif
 
 	// Layered Min-Sum Decoder
 	MS_DATA *lms_soft;

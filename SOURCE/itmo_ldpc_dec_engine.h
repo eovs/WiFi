@@ -3,7 +3,6 @@
 #define _DECODER_H_
 
 #include <vector>
-#include "decoders.h"
 
 class itmo_ldpc_dec_engine_t 
 {
@@ -14,13 +13,15 @@ class itmo_ldpc_dec_engine_t
 		void init(const std::vector<std::vector<int>>&check_matrix, int z);
 		void reset();
 		void push(const std::vector<int>&in);
-		int iterate();
+		ret_status iterate();
 		const std::vector<bool>&pull();
 		bool  calc_parity_check();
 		~itmo_ldpc_dec_engine_t();
   
 	private:
-		DEC_STATE *dec_state;
+	    bool is_init = false;
+		int llr_bits = 7;
+		void *state;
 		int codewordLen;
 		std::vector<bool> *decword;
 };
