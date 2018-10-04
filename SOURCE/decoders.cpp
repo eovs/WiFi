@@ -11,6 +11,8 @@
 
 //#define CHINA_VERSION
 
+//#define EXT_DEC_ENABLE
+
 char const * const DEC_FULL_NAME[] = 
 {
 	"Layered Min-Sum",
@@ -2326,6 +2328,8 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 
 
+#ifdef EXT_DEC_ENABLE
+
 #define MAX_STATE 4
 DEC_STATE *state[MAX_STATE];
 int state_num;
@@ -2629,3 +2633,5 @@ int ext_il_minsum( DEC_STATE* st, int soft[], int decword[], int maxiter, double
 {
 	return maxiter;
 }
+
+#endif //EXT_DEC_ENABLE
