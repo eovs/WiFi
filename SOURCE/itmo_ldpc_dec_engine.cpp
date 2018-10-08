@@ -16,7 +16,7 @@ typedef struct
 	int min2; 
 	int pos;
 	int sign;
-} ILMS_NODE;
+} IMS_NODE;
 
 
 typedef struct
@@ -31,9 +31,10 @@ typedef struct
 
 	int *soft;
 	int	*sign;
-	ILMS_NODE *dcs;
-	ILMS_NODE *tmps;
+	IMS_NODE *dcs;
+	IMS_NODE *tmps;
 	int *buffer;
+	std::vector<bool> *decword;
 }ILMS_STATE;
 
 static int** Alloc2d_int( int b, int c )
@@ -80,9 +81,10 @@ static ILMS_STATE* decoder_open( int mh, int nh, int M )
 
 	st->soft    = new int[N];
 	st->sign    = new int[mh*N];
-	st->dcs     = new ILMS_NODE[R];
-	st->tmps    = new ILMS_NODE[M];
+	st->dcs     = new IMS_NODE[R];
+	st->tmps    = new IMS_NODE[M];
 	st->buffer  = new int[M];
+	st->decword = new vector<bool>(N);
 
     return st;
 }
@@ -122,7 +124,7 @@ static int icheck_syndrome( ILMS_STATE *state )
 	return parity;
 }
 
-static void iprocess_check_node( ILMS_NODE *curr, int curr_v2c_sign, int abs_curr_v2c, int index )
+static void iprocess_check_node( IMS_NODE *curr, int curr_v2c_sign, int abs_curr_v2c, int index )
 {
 	curr->sign ^= curr_v2c_sign;
 
@@ -145,8 +147,8 @@ static itmo_ldpc_dec_engine_t::ret_status il_min_sum_iterate( ILMS_STATE* st, in
 	int *soft       = st->soft;
 	int *signs      = st->sign;  
 	int *buffer     = st->buffer;
-	ILMS_NODE *prev = st->dcs;		
-	ILMS_NODE *curr = st->tmps;		
+	IMS_NODE *prev = st->dcs;		
+	IMS_NODE *curr = st->tmps;		
 
 	int dmax = (1 << (inner_data_bits-1)) - 1;
 	int ibeta = (int)(0.5 * IL_SOFT_ONE);
@@ -239,6 +241,9 @@ itmo_ldpc_dec_engine_t::itmo_ldpc_dec_engine_t()
 
 itmo_ldpc_dec_engine_t::~itmo_ldpc_dec_engine_t()
 {
+	if( !is_init )	
+		return;
+
 	ILMS_STATE *st = (ILMS_STATE*)state;
 
 	if(st->hd)		{ free2d_int( st->hd );          st->hd       = NULL; }
@@ -248,12 +253,12 @@ itmo_ldpc_dec_engine_t::~itmo_ldpc_dec_engine_t()
 	delete [] st->dcs;
 	delete [] st->tmps;
 	delete [] st->buffer;
+	delete st->decword;
 
     delete st;
 
 	state = NULL;
 	is_init = false;
-	delete decword;
 }
 
 void  itmo_ldpc_dec_engine_t::init(const std::vector<std::vector<int>>&check_matrix, int z)
@@ -262,24 +267,27 @@ void  itmo_ldpc_dec_engine_t::init(const std::vector<std::vector<int>>&check_mat
 	int nrow = (int)check_matrix.size();
 	int ncol = (int)check_matrix[0].size();
 	
-	codewordLen = ncol * z;
-	decword = new vector<bool>(codewordLen);
-
 	dec_state = decoder_open( nrow, ncol, z );
-	state = (void*)dec_state;
 	
 	for( int i = 0; i < nrow; i++ )
 		for( int j = 0; j < ncol; j++ )
 			dec_state->hd[i][j] = check_matrix[i][j];
+
+	state = (void*)dec_state;
 	is_init = true;
+
+	reset();
 }
 
 void  itmo_ldpc_dec_engine_t::reset()
 {
+	if( !is_init )	
+		return;
+
 	ILMS_STATE *st = (ILMS_STATE*)state;
 
 	int *signs      = st->sign;  
-	ILMS_NODE *prev = st->dcs;		
+	IMS_NODE *prev = st->dcs;		
 
 	int m  = st->m;
 	int rh = st->rh;
@@ -301,6 +309,9 @@ void  itmo_ldpc_dec_engine_t::reset()
 
 void  itmo_ldpc_dec_engine_t::push(const std::vector<int>&in)
 {
+	if( !is_init )	
+		return;
+
 	for( int i = 0; i < in.size(); i++ )
 		((ILMS_STATE*)state)->soft[i] = in[i] << IL_SOFT_FPP; 
 }
@@ -315,12 +326,17 @@ itmo_ldpc_dec_engine_t::ret_status  itmo_ldpc_dec_engine_t::iterate()
 
 const std::vector<bool>& itmo_ldpc_dec_engine_t::pull()
 {
-	for( int i = 0; i < codewordLen; i++ )
-		(*decword)[i] = ((ILMS_STATE*)state)->soft[i] < 0;
-	return *decword;
+	std::vector<bool>::iterator it = ((ILMS_STATE*)state)->decword->begin();
+
+	for( int i = 0; i < ((ILMS_STATE*)state)->codelen; i++ )
+		*it++ = ((ILMS_STATE*)state)->soft[i] < 0;
+	return *((ILMS_STATE*)state)->decword;
 }
 
 bool  itmo_ldpc_dec_engine_t::calc_parity_check()
 {
+	if( !is_init )	
+		return true;
+
 	return icheck_syndrome( (ILMS_STATE*) state ) ? true : false;
 }

@@ -22,7 +22,5 @@ class itmo_ldpc_dec_engine_t
 	    bool is_init = false;
 		int llr_bits = 7;
 		void *state;
-		int codewordLen;
-		std::vector<bool> *decword;
 };
 #endif _DECODER_H_

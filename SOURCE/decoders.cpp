@@ -2094,7 +2094,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int inner_data_bits )
 {
-	int   i, j, k, n;
+	int   i, k;
 	int iter;
 	int parity;
 	int **matr         = st->hd;
