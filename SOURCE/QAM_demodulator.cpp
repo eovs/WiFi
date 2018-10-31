@@ -501,3 +501,94 @@ void Demodulate( QAM_DEMODULATOR_STATE* st, double *pMod[2], double pRes[] )
         }
     }
 }
+
+
+typedef struct 
+{
+	int v1;
+	int v2;
+} PAM_ELEMENT;
+
+
+PAM_ELEMENT t1[] = { {0, 0}, {2,  1}, {1,  0}, { 1,  0}, { 2, -1} };
+PAM_ELEMENT t2[] = { {0, 0}, {1,  1}, {1,  1}, {-1,  1}, {-1,  1} };
+
+void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
+{
+    int ns = st->ns * 2;
+	int m = st->m / 2;
+    int n = st->n;
+    double sigma = st->sigma;
+	double V = sigma * sigma;
+	double B = -4/V;
+    double T = st->T;
+	static int ix[10000];  
+	PAM_ELEMENT *T1, *T2;
+    int i;
+
+    int SQ = 1 <<( m );   //square root of Q;
+ 
+    if( m == 1 )
+    {   
+        int i;
+        double V = sigma*sigma;
+
+		for( i = 0; i < n; i++ )
+            pRes[i] = 2.0*pMod[i] / V;
+
+		return;
+    }
+
+	for( i = 0; i < ns; i++ )
+	{
+		if( i == 15 ) 
+			i = i;
+		//index nearest signal point
+		//	ix=round((x-1)/2)+M/2+1; 
+		double val = (pMod[i] - 1) / 2;
+		double absval = val < 0.0 ? -val : val;
+		int      sign = val < 0.0 ? 1 : 0;
+		ix[i] = (int)( val + 0.5 );
+		ix[i] = sign ? -ix[i] : ix[i];
+		ix[i] += SQ/2 + 1;
+		if( ix[i] < 0 )  ix[i] = 0;
+		if( ix[i] > SQ ) ix[i] = SQ; 
+	}
+
+
+	switch( m )
+	{
+		// Tables of coefficients
+    case 2:
+		//T1=[ 2  1; 1  0;  1  0;  2 -1];
+		//T2=[ 1  1; 1  1; -1  1; -1  1];
+		T1 = t1;
+		T2 = t2;
+		
+		for( i = 0; i < ns; i++ )
+		{
+			pRes[i*2]   = T1[ix[i]].v1 * (-pMod[i]*2/V) + T1[ix[i]].v2 * B;
+			pRes[i*2+1] = T2[ix[i]].v1 * (-pMod[i]*2/V) + T2[ix[i]].v2 * B;
+		}
+
+		break;
+/*
+    case 3
+       T=[4 6; 3 3; 2  1;1  0];
+       T1=[T; [ flipud(T(:,1)) -flipud(T(:,2))]];
+       T=[2 5; 1 2; 1 2; 2 3];
+       T2=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
+       T=[1 3; 1 3; -1 -1; -1 -1];
+       T3=[T; [T(:,1) flipud(T(:,2))]];
+    case 4
+       T=[8 28;7 21;6 15; 5 10; 4 6;3 3; 2 1;  1 0];
+       T1=[T; [ flipud(T(:,1)) -flipud(T(:,2))]];
+       T=[ 4 22; 3 15;  2  9;  1  4; 1  4; 2  7; 3  9; 4 10];
+       T2=[T; [-flipud(T(:,1)) flipud(T(:,2))]];   
+       T=[ 2 13; 1  6; 1  6; 2  11; -2 -5; -1 -2;-1 -2; -2 -3];%%%
+       T3=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
+       T =[ 1 7; 1  7; -1 -5; -1 -5; 1  3; 1  3; -1 -1; -1 -1];
+       T4=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
+*/
+	}
+}

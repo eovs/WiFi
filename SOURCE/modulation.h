@@ -105,4 +105,6 @@ QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int 
 void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st );
 void Demodulate( QAM_DEMODULATOR_STATE* st, double *x[2], double pRes[] );
 
+void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] );
+
 #endif //_MODULATION_H_
