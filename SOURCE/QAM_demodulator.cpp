@@ -44,13 +44,13 @@ void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st )
 }
 
 
-void Demodulate( QAM_DEMODULATOR_STATE* st, double *pMod[2], double pRes[] )
+void Demodulate( QAM_DEMODULATOR_STATE* st, double *pMod[2], double pRes[], double sigma )
 {
     int m = st->m;
     int i;
     int ns = st->ns;
     int n = st->n;
-    double sigma = st->sigma;
+    //double sigma = st->sigma;
     double T = st->T;
     
    
@@ -534,24 +534,22 @@ void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
         double V = sigma*sigma;
 
 		for( i = 0; i < n; i++ )
-            pRes[i] = 2.0*pMod[i] / V;
+            pRes[i] = -2.0*pMod[i] / V;
 
 		return;
     }
 
 	for( i = 0; i < ns; i++ )
 	{
-		if( i == 15 ) 
-			i = i;
 		//index nearest signal point
 		//	ix=round((x-1)/2)+M/2+1; 
 		double val = (pMod[i] - 1) / 2;
 		double absval = val < 0.0 ? -val : val;
 		int      sign = val < 0.0 ? 1 : 0;
-		ix[i] = (int)( val + 0.5 );
+		ix[i] = (int)( absval + 0.5 );
 		ix[i] = sign ? -ix[i] : ix[i];
 		ix[i] += SQ/2 + 1;
-		if( ix[i] < 0 )  ix[i] = 0;
+		if( ix[i] < 1 )  ix[i] = 1;
 		if( ix[i] > SQ ) ix[i] = SQ; 
 	}
 
