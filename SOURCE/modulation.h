@@ -86,6 +86,7 @@ typedef struct
     double **x;
     //double *L;
     //double *P1;
+	int *ix;	// for FAST_DEODULATOR ONLY
 } QAM_DEMODULATOR_STATE;
 
 #define NOT_FOUND   -1

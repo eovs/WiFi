@@ -35,11 +35,16 @@ QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int 
     st->ns = ns;
     st->DemodOutType = out_type;
   
+	st->ix = (int*)malloc(ns*2*sizeof(st->ix[0]) );
+	if( !st->ix )
+		return NULL;
+
     return st;
 }
 
 void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st )
 {
+	free( st->ix );
     free( st );
 }
 
@@ -509,9 +514,39 @@ typedef struct
 	int v2;
 } PAM_ELEMENT;
 
+//QAM16
+PAM_ELEMENT t16_1[] = { {2,  1}, {1,  0}, { 1,  0}, { 2, -1} };
+PAM_ELEMENT t16_2[] = { {1,  1}, {1,  1}, {-1,  1}, {-1,  1} };
 
-PAM_ELEMENT t1[] = { {0, 0}, {2,  1}, {1,  0}, { 1,  0}, { 2, -1} };
-PAM_ELEMENT t2[] = { {0, 0}, {1,  1}, {1,  1}, {-1,  1}, {-1,  1} };
+//QAM64
+PAM_ELEMENT t64_1[] = { {4, 6 }, {3, 3}, { 2, 1}, { 1, 0}, { 1, 0}, { 2,-1}, { 3,-3}, { 4,-6} };
+PAM_ELEMENT t64_2[] = { {2, 5 }, {1, 2}, { 1, 2}, { 2, 3}, {-2, 3}, {-1, 2}, {-1, 2}, {-2, 5} };
+PAM_ELEMENT t64_3[] = { {1, 3 }, {1, 3}, {-1,-1}, {-1,-1}, { 1,-1}, { 1,-1}, {-1, 3}, {-1, 3} };
+
+//QAM256
+PAM_ELEMENT t256_1[] = 
+{ 
+	{8, 28}, {7, 21}, { 6, 15}, { 5, 10}, { 4,  6}, { 3,  3}, { 2,  1}, { 1,  0},
+ 	{1,  0}, {2, -1}, { 3, -3}, { 4, -6}, { 5,-10}, { 6,-15}, { 7,-21}, { 8,-28}
+};
+
+PAM_ELEMENT t256_2[] = 
+{ 
+	{ 4, 22}, { 3, 15}, { 2, 9}, { 1, 4}, { 1, 4}, { 2, 7}, { 3,  9}, { 4, 10},
+ 	{-4, 10}, {-3,  9}, {-2, 7}, {-1, 4}, {-1, 4}, {-2, 9}, {-3, 15}, {-4, 22}
+};
+
+PAM_ELEMENT t256_3[] = 
+{ 
+	{ 2, 13}, { 1, 6}, { 1, 6}, { 2, 11}, {-2, -5}, {-1,-2}, {-1,-2}, {-2, -3},
+ 	{ 2, -3}, { 1,-2},  {1,-2}, { 2, -5}, {-2, 11}, {-1, 6}, {-1, 6}, {-2, 11}
+};
+
+PAM_ELEMENT t256_4[] = 
+{ 
+	{ 1, 7}, { 1, 7}, {-1,-5}, {-1,-5}, { 1, 3}, { 1, 3}, {-1,-1}, {-1,-1},
+ 	{ 1,-1}, { 1,-1}, {-1, 3}, {-1, 3}, { 1,-5}, { 1,-5}, {-1, 7}, {-1, 7}
+};
 
 void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
 {
@@ -521,12 +556,10 @@ void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
     double sigma = st->sigma;
 	double V = sigma * sigma;
 	double B = -4/V;
-    double T = st->T;
-	static int ix[10000];  
-	PAM_ELEMENT *T1, *T2;
+	int* ix = st->ix;
+    int SQ = 1 <<( m );   //square root of Q;
     int i;
 
-    int SQ = 1 <<( m );   //square root of Q;
  
     if( m == 1 )
     {   
@@ -546,11 +579,11 @@ void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
 		double val = (pMod[i] - 1) / 2;
 		double absval = val < 0.0 ? -val : val;
 		int      sign = val < 0.0 ? 1 : 0;
-		ix[i] = (int)( absval + 0.5 );
-		ix[i] = sign ? -ix[i] : ix[i];
-		ix[i] += SQ/2 + 1;
-		if( ix[i] < 1 )  ix[i] = 1;
-		if( ix[i] > SQ ) ix[i] = SQ; 
+		int      ival = (int)( absval + 0.5 );
+		ival = (sign ? -ival : ival) + SQ/2;
+		if( ival < 0 )    ival = 0;
+		if( ival > SQ-1 ) ival = SQ-1; 
+		ix[i] = ival;
 	}
 
 
@@ -558,35 +591,30 @@ void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
 	{
 		// Tables of coefficients
     case 2:
-		//T1=[ 2  1; 1  0;  1  0;  2 -1];
-		//T2=[ 1  1; 1  1; -1  1; -1  1];
-		T1 = t1;
-		T2 = t2;
-		
 		for( i = 0; i < ns; i++ )
 		{
-			pRes[i*2]   = T1[ix[i]].v1 * (-pMod[i]*2/V) + T1[ix[i]].v2 * B;
-			pRes[i*2+1] = T2[ix[i]].v1 * (-pMod[i]*2/V) + T2[ix[i]].v2 * B;
+			pRes[i*2]   = t16_1[ix[i]].v1 * (-pMod[i]*2/V) + t16_1[ix[i]].v2 * B;
+			pRes[i*2+1] = t16_2[ix[i]].v1 * (-pMod[i]*2/V) + t16_2[ix[i]].v2 * B;
+		}
+		break;
+
+	case 3:
+		for( i = 0; i < ns; i++ )
+		{
+			pRes[i*3]   = t64_1[ix[i]].v1 * (-pMod[i]*2/V) + t64_1[ix[i]].v2 * B;
+			pRes[i*3+1] = t64_2[ix[i]].v1 * (-pMod[i]*2/V) + t64_2[ix[i]].v2 * B;
+			pRes[i*3+2] = t64_3[ix[i]].v1 * (-pMod[i]*2/V) + t64_3[ix[i]].v2 * B;
 		}
 
 		break;
-/*
-    case 3
-       T=[4 6; 3 3; 2  1;1  0];
-       T1=[T; [ flipud(T(:,1)) -flipud(T(:,2))]];
-       T=[2 5; 1 2; 1 2; 2 3];
-       T2=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
-       T=[1 3; 1 3; -1 -1; -1 -1];
-       T3=[T; [T(:,1) flipud(T(:,2))]];
-    case 4
-       T=[8 28;7 21;6 15; 5 10; 4 6;3 3; 2 1;  1 0];
-       T1=[T; [ flipud(T(:,1)) -flipud(T(:,2))]];
-       T=[ 4 22; 3 15;  2  9;  1  4; 1  4; 2  7; 3  9; 4 10];
-       T2=[T; [-flipud(T(:,1)) flipud(T(:,2))]];   
-       T=[ 2 13; 1  6; 1  6; 2  11; -2 -5; -1 -2;-1 -2; -2 -3];%%%
-       T3=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
-       T =[ 1 7; 1  7; -1 -5; -1 -5; 1  3; 1  3; -1 -1; -1 -1];
-       T4=[T; [-flipud(T(:,1)) flipud(T(:,2))]];
-*/
+
+	case 4:
+		for( i = 0; i < ns; i++ )
+		{
+			pRes[i*4]   = t256_1[ix[i]].v1 * (-pMod[i]*2/V) + t256_1[ix[i]].v2 * B;
+			pRes[i*4+1] = t256_2[ix[i]].v1 * (-pMod[i]*2/V) + t256_2[ix[i]].v2 * B;
+			pRes[i*4+2] = t256_3[ix[i]].v1 * (-pMod[i]*2/V) + t256_3[ix[i]].v2 * B;
+			pRes[i*4+3] = t256_4[ix[i]].v1 * (-pMod[i]*2/V) + t256_4[ix[i]].v2 * B;
+		}
 	}
 }
