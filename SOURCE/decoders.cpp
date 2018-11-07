@@ -11,7 +11,7 @@
 
 //#define CHINA_VERSION
 
-//#define EXT_DEC_ENABLE
+#define EXT_DEC_ENABLE
 
 char const * const DEC_FULL_NAME[] = 
 {
