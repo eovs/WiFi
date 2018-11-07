@@ -18,14 +18,53 @@ SUPPORTED_PARAMS supported_params[] =
 	{ "llr_bits",   4 },   
 	{ "code_M",     5 },    
 	{ "dec_type",   6 },  
-	{ "target_FER", 7 }
+	{ "target_FER", 7 },
+	{ "snr",        8 }
 };
+
+char* get_string( char line[], char *val )
+{
+	char string[100];
+	size_t len = 0;
+
+	if( sscanf_s( line, "%s", string, (int)sizeof(string) ) == 1)
+	{
+		strcpy_s( val,  (int)sizeof(string), string );
+		len = strlen( string );
+	}
+	return  strstr( line, string ) + len;
+}
+
+char* get_int( char line[], int *val )
+{
+	char string[100];
+	size_t len = 0;
+
+	if( sscanf_s( line, "%s", string, (int)sizeof(string) ) == 1)
+	{
+		*val = atoi( string );
+		len = strlen( string );
+	}
+	return  strstr( line, string ) + len;
+}
+
+char* get_dbl( char line[], double *val )
+{
+	char string[100];
+	size_t len = 0;
+
+	if( sscanf_s( line, "%s", string, (int)sizeof(string) ) == 1)
+	{
+		*val = atof( string );
+		len = strlen( string );
+	}
+	return  strstr( line, string ) + len;
+}
 
 int set_params( char *fileName, SIMULATION_PARAMS *params )
 {
 	char line[1000];
 	char name[100];
-	char val[100];
 	int nparams = sizeof(supported_params) / sizeof(supported_params[0]);
 	int i;
 
@@ -38,15 +77,20 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 	printf("CONFIG FILE:\n");
 	while( !feof( fp ) )
 	{
-		char *ptr = fgets( line, sizeof(line), fp );
-		if( ptr == NULL )
+		char *curr_line = fgets( line, sizeof(line), fp );
+		if( curr_line == NULL )
 			break;
 		
 		if( line[0] == '\n' )
 			break;
 
-		sscanf_s( line, "%s%s", name, (int)sizeof(name), val, (int)sizeof(val) );
+		curr_line = strstr( line, "//" ); 
+		curr_line[0] = '\n';
+		curr_line[1] = '\0';
 
+		curr_line = get_string( line, name );
+		params->SNR_flag = 0;
+		
 		for( i = 0; i < nparams; i++ )
 		{
 			if( strcmp( name, supported_params[i].paramName ) == 0 )
@@ -55,14 +99,18 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 		
 				switch( supported_params[i].paramIndex )
 				{
-				case 0: params->cfg        = atoi( val );	break;
-				case 1: params->n_pass     = atoi( val );	break;
-				case 2: params->n_iter     = atoi( val );	break;
-				case 3: params->n_event    = atoi( val );	break;
-				case 4: params->llr_bits   = atoi( val );	break;
-				case 5: params->code_M     = atoi( val );	break;
-				case 6: params->dec_type   = atoi( val );	break;
-				case 7: params->target_FER = atof( val );	break;
+				case 0: curr_line = get_int( curr_line, &params->cfg );			break;
+				case 1: curr_line = get_int( curr_line, &params->n_pass );		break;
+				case 2: curr_line = get_int( curr_line, &params->n_iter );		break;
+				case 3: curr_line = get_int( curr_line, &params->n_event );		break;
+				case 4: curr_line = get_int( curr_line, &params->llr_bits );	break;
+				case 5: curr_line = get_int( curr_line, &params->code_M );		break;
+				case 6: curr_line = get_int( curr_line, &params->dec_type );	break;
+				case 7: curr_line = get_dbl( curr_line, &params->target_FER );	break;
+				case 8: curr_line = get_dbl( curr_line, &params->SNR_start );
+					    curr_line = get_dbl( curr_line, &params->SNR_stop );
+						curr_line = get_dbl( curr_line, &params->SNR_step );	
+						params->SNR_flag  = 1; break;
 				}
 
 				break;

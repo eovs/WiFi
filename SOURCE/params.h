@@ -11,6 +11,10 @@ typedef struct
 	int code_M;
 	int dec_type;
 	double target_FER;
+	double SNR_start;
+	double SNR_stop;
+	double SNR_step;
+	int SNR_flag;
 } SIMULATION_PARAMS;
 
 int set_params( char *fileName, SIMULATION_PARAMS *params );
