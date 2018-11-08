@@ -2330,7 +2330,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 #ifdef EXT_DEC_ENABLE
 
-#define MAX_STATE 4
+#define MAX_STATE 10000
 DEC_STATE *state[MAX_STATE];
 int state_num;
 void open_ext_il_minsum( int irate, int M, int num )
@@ -2360,6 +2360,61 @@ void open_ext_il_minsum( int irate, int M, int num )
 				state[i]->hd[k][n] = *matr_ptr++;
 
 	}
+
+}
+
+CODE_CFG open_ext_il_minsum( char *file_name, int M )
+{
+	int k, n;
+	int mh, nh;
+	FILE *fp;
+	char word[256];
+	CODE_CFG code;
+
+	code.M = M;
+	code.matrix = NULL;
+	code.nrow = 0;
+	code.ncol = 0;
+
+	fopen_s( &fp, file_name, "rt" );
+	if( fp == NULL )
+		return code;
+
+	for( state_num = 0; state_num < MAX_STATE; state_num++ )
+	{
+		int ret = fscanf_s( fp, "%d %d", &mh, &nh );
+		
+		if( ret != 2 ) break;
+	
+		state[state_num] = decod_open( 1, mh, nh, M ); 
+
+		for( k = 0; k < mh; k++ )
+		{
+			for( n = 0; n < nh; n++ )
+			{
+				ret = fscanf_s( fp, "%d", &state[state_num]->hd[k][n] );
+				if( ret != 1 )
+					goto lable1;
+			}
+		}
+
+		if( state_num == 0 )
+		{
+			code.nrow = mh;
+			code.ncol = nh;
+			code.matrix = state[state_num]->hd[0];
+		}
+
+		ret = fscanf_s( fp, "%s", word, (int)sizeof(word) );
+		if( ret != 1 ) break;
+		if( strcmp( word, "stop" ) == 0 ) break;
+
+	}
+
+	lable1:;
+	if( state_num < MAX_STATE )
+		state_num++;
+	return code;
 }
 
 #if 0

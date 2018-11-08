@@ -1,6 +1,8 @@
 #ifndef _DECODERS_H_
 #define _DECODERS_H_
 
+#include "matrix.h"
+
 #define IL_SOFT_FPP	1
 
 enum  DEC_ID
@@ -119,6 +121,7 @@ void il_min_sum_reset( DEC_STATE *st );
 int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits );
 
 void open_ext_il_minsum( int irate, int M, int num );
+CODE_CFG open_ext_il_minsum( char *file_name, int M );
 int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits );
 void close_ext_il_minsum( void );
 

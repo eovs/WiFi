@@ -19,7 +19,8 @@ SUPPORTED_PARAMS supported_params[] =
 	{ "code_M",     5 },    
 	{ "dec_type",   6 },  
 	{ "target_FER", 7 },
-	{ "snr",        8 }
+	{ "snr",        8 },
+	{ "aux_file",   9 }
 };
 
 char* get_string( char line[], char *val )
@@ -75,6 +76,8 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 		return 0;
 
 	printf("CONFIG FILE:\n");
+	params->SNR_flag = 0;
+
 	while( !feof( fp ) )
 	{
 		char *curr_line = fgets( line, sizeof(line), fp );
@@ -89,7 +92,6 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 		curr_line[1] = '\0';
 
 		curr_line = get_string( line, name );
-		params->SNR_flag = 0;
 		
 		for( i = 0; i < nparams; i++ )
 		{
@@ -111,6 +113,7 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 					    curr_line = get_dbl( curr_line, &params->SNR_stop );
 						curr_line = get_dbl( curr_line, &params->SNR_step );	
 						params->SNR_flag  = 1; break;
+				case 9: curr_line = get_string( curr_line, params->file_name );	break;
 				}
 
 				break;
