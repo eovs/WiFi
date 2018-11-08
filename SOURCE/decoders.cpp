@@ -2139,7 +2139,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 //		if( parity == 0 )
 //			break; 
 
-#if 1 // qant lib version
+#if 0 // qant lib version
 		int res = il_min_sum_iterate( st, inner_data_bits );
 		if( res == 2 )
 		{
@@ -2149,6 +2149,8 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 		else
 			parity = 1;
 #else // qant lib version
+		int j, n;
+
 		// INIT_STAGE
 		memset( synd, 0, r_ldpc*sizeof(synd[0]) );
 
@@ -2365,7 +2367,7 @@ void open_ext_il_minsum( int irate, int M, int num )
 
 CODE_CFG open_ext_il_minsum( char *file_name, int M )
 {
-	int k, n;
+	int i, k, n;
 	int mh, nh;
 	FILE *fp;
 	char word[256];
@@ -2380,40 +2382,41 @@ CODE_CFG open_ext_il_minsum( char *file_name, int M )
 	if( fp == NULL )
 		return code;
 
-	for( state_num = 0; state_num < MAX_STATE; state_num++ )
+	state_num = 0;
+	if( fscanf_s( fp, "%d", &state_num ) != 1 )
+		return code;
+	if( state_num > MAX_STATE )
+		state_num = MAX_STATE;
+
+	for( i = 0; i < state_num; i++ )
 	{
 		int ret = fscanf_s( fp, "%d %d", &mh, &nh );
 		
 		if( ret != 2 ) break;
 	
-		state[state_num] = decod_open( 1, mh, nh, M ); 
+		state[i] = decod_open( 1, mh, nh, M ); 
 
 		for( k = 0; k < mh; k++ )
 		{
 			for( n = 0; n < nh; n++ )
 			{
-				ret = fscanf_s( fp, "%d", &state[state_num]->hd[k][n] );
+				ret = fscanf_s( fp, "%d", &state[i]->hd[k][n] );
 				if( ret != 1 )
 					goto lable1;
 			}
 		}
 
-		if( state_num == 0 )
+		if( i == 0 )
 		{
 			code.nrow = mh;
 			code.ncol = nh;
-			code.matrix = state[state_num]->hd[0];
+			code.matrix = state[i]->hd[0];
 		}
-
-		ret = fscanf_s( fp, "%s", word, (int)sizeof(word) );
-		if( ret != 1 ) break;
-		if( strcmp( word, "stop" ) == 0 ) break;
-
 	}
 
 	lable1:;
-	if( state_num < MAX_STATE )
-		state_num++;
+	if( i < state_num )
+		state_num = i+1;
 	return code;
 }
 

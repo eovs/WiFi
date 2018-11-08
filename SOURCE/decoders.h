@@ -115,6 +115,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxite
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxiter );    
 int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps );
 
+double** Alloc2d_double( int b, int c );
 
 void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
 void il_min_sum_reset( DEC_STATE *st );
