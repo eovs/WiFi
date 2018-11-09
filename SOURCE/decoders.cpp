@@ -371,9 +371,10 @@ static void check_syndrome( int **matr, int rh, int nh, MS_DATA *soft, MS_DATA *
 	}
 }
 
-void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd )
+int icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd )
 {
 	int k, j, n;
+	int parity = 0;
 
 	for( j = 0; j < rh; j++ )
 	{
@@ -394,7 +395,15 @@ void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsof
 					synd[stateOffset+n] ^= rsoft[n] < 0;
 			}
 		}
+		
+		for( n = 0; n < m_ldpc; n++ )
+			parity |= synd[stateOffset+n];
+
+		if( parity )
+			break;
 	}
+
+	return parity;
 }
 
 void decod_close( DEC_STATE* st )
@@ -1605,7 +1614,7 @@ void iget_c2v( int *sign, int pos, IMS_DEC_STATE *prev, IMS_DATA *c2v, int m_ldp
 
 #define myabs( a ) ((a) > 0 ? (a) : -(a))
 
-void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits, int region[] )
+void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits )
 {
 	int k, n;
 	int **matr         = st->hd;
@@ -2332,7 +2341,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 #ifdef EXT_DEC_ENABLE
 
-#define MAX_STATE 10000
+
 DEC_STATE *state[MAX_STATE];
 int state_num;
 void open_ext_il_minsum( int irate, int M, int num )
@@ -2370,7 +2379,6 @@ CODE_CFG open_ext_il_minsum( char *file_name, int M )
 	int i, k, n;
 	int mh, nh;
 	FILE *fp;
-	char word[256];
 	CODE_CFG code;
 
 	code.M = M;
@@ -2545,7 +2553,7 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 }
 #else
 // version: code by code
-int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
+DEC_RES ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
 {
 	int stn;
 	int iter;
@@ -2555,8 +2563,7 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 	int r_ldpc_org = 0;
 	int rh_org = 0;
 	int nh_org = 0;
-
-	static int  region[10000];
+	DEC_RES result;
 
 	// load codeword and reset decoder
 	for( stn = 0; stn < state_num; stn++ )
@@ -2583,17 +2590,8 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 			r_ldpc_org = r_ldpc;
 		}
 
-#if 0
 		for( int i = 0; i < codelen; i++ )
-			region[i] = abs( y[i] ) < 1 ? 0 : 1;
-#else
-		for( int i = 0; i < codelen; i++ )
-			region[i] = 0;
-		region[4] = 0;//1;
-#endif
-
-		for( int i = 0; i < codelen; i++ )
-			soft[i] = y[i] << IL_SOFT_FPP; 
+			soft[i] = y[i] * ONE_IL_SOFT; 
 
 		for( int i = 0; i < codelen - codelen_org; i++ )
 			soft[codelen_org + i] = 0;
@@ -2628,40 +2626,24 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 			//il_min_sum_iterate( dec_state, inner_data_bits );
 			int i;
 			for( i = 0; i < rh; i++ )
-				il_min_sum_layer( dec_state, iter, i, inner_data_bits, region );
+				il_min_sum_layer( dec_state, iter, i, inner_data_bits );
 
 
 			memset( syndr, 0, r_ldpc * sizeof( syndr[0]) );
-			icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
-//			icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
-		
-			parity = 0;
-			for( int i = 0; i < r_ldpc_org; i++ )
-			{
-				if( syndr[i] )
-				{
-					parity = 1;
-					break;
-				}
-			}
+			parity = icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
+//			parity = icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
 
 			if( parity == 0 )
-				break;
-		}
-
-		if( parity == 0 )
-		{
-			if( stn > 0 && stn < state_num )
 			{
-				for( int i = 0; i < codelen_org; i++ )
-					soft_org[i] = soft[i];
-				stn = stn;
+				if( stn   )
+					memcpy( soft_org, soft, codelen_org * sizeof(soft[0]) );
+				goto label1;
 			}
-
-			break;
 		}
 #endif
 	}
+
+label1:;
 
 	for( int k = 0; k < codelen_org; k++ )
 		dec_output[k] = soft_org[k] < 0;
@@ -2671,8 +2653,10 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 	else
 		iter += 1;
 
+	result.iter = iter;
+	result.dec_index = stn;
 
-	return iter;
+	return result;
 }
 #endif
 

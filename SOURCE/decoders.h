@@ -4,6 +4,9 @@
 #include "matrix.h"
 
 #define IL_SOFT_FPP	1
+#define ONE_IL_SOFT ( 1 << IL_SOFT_FPP )
+
+#define MAX_STATE 10000		// max number of decoder instances
 
 enum  DEC_ID
 {
@@ -55,6 +58,11 @@ typedef struct
 	int cnt;
 } IMS_DEC_STATE;
 
+typedef struct
+{
+	int iter;
+	int dec_index;
+}DEC_RES;
 
 typedef struct
 {
@@ -117,13 +125,13 @@ int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps );
 
 double** Alloc2d_double( int b, int c );
 
-void icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
+int icheck_syndrome( int **matr, int rh, int nh, IMS_DATA *soft, IMS_DATA *rsoft, int m_ldpc, int *synd );
 void il_min_sum_reset( DEC_STATE *st );
 int il_min_sum_iterate( DEC_STATE* st, int inner_data_bits );
 
 void open_ext_il_minsum( int irate, int M, int num );
 CODE_CFG open_ext_il_minsum( char *file_name, int M );
-int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits );
+DEC_RES ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits );
 void close_ext_il_minsum( void );
 
 
