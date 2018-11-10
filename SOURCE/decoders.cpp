@@ -1639,7 +1639,7 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits )
 	int stateOffset = layer * m_ldpc;
 	IMS_DATA *curr_v2c;
 
-	static IMS_DATA current_v2c[1000000];
+//	static IMS_DATA current_v2c[1000000];
 
 	for( k = 0; k < m_ldpc; k++ )
 	{
@@ -1657,7 +1657,7 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits )
 	{
 		int memOffset = layer * n_ldpc + k * m_ldpc;
 		IMS_DATA *curr_soft    = &soft[k * m_ldpc];
-#if 0
+#if 01
 		curr_v2c     = curr_soft;	//!!!!!!!
 #else
 		curr_v2c = &current_v2c[k * m_ldpc];
@@ -1707,7 +1707,7 @@ void il_min_sum_layer( DEC_STATE* st, int iter, int layer, int inner_data_bits )
 		int memOffset = layer * n_ldpc + k * m_ldpc;
 		int circ = matr[layer][k];
 
-#if 0
+#if 01
 		curr_v2c     = curr_soft;	//!!!!!!!
 #else
 		curr_v2c = &current_v2c[k * m_ldpc];
@@ -2553,8 +2553,64 @@ int ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, d
 }
 #else
 // version: code by code
+
 DEC_RES ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alpha, double beta, int inner_data_bits )
 {
+#if 01
+	int stn;
+	int iter;
+	DEC_RES result;
+	int codelen_org = state[0]->codelen;
+	int dec_type = 1;
+	static int dec_word[100000];
+
+
+	for( stn = 0; stn < state_num; stn++ )
+	{
+		DEC_STATE *instance = state[stn]; 
+		int codelen = state[stn]->codelen;
+
+		switch( dec_type )
+		{
+		case LMS_DEC: break;
+		case ILMS_DEC: 	for( int k = 0; k < codelen-codelen_org; k++ )	instance->ilms_soft[codelen_org + k] = 0;	break;
+		case LCHE_DEC:	 break;
+		case ILCHE_DEC: break;
+		}
+
+		switch( dec_type )
+		{
+		case LMS_DEC:   iter = lmin_sum_decod_qc_lm( instance, dec_input, dec_output, n_iter, 0.8, 0.5 ); break;
+		case ILMS_DEC:  iter = il_min_sum_decod_qc_lm( instance, dec_input, dec_word, n_iter, 0.8, 0.5, inner_data_bits ); break;
+		case LCHE_DEC:  iter = lche_decod( instance, dec_input, dec_output, n_iter );		 break;
+		case ILCHE_DEC: iter = ilche_decod( instance, dec_input, dec_output, n_iter );		 break;
+		}
+
+		if( iter >= 0 )
+			break;
+
+	}
+
+	if( (stn < state_num ) && (stn > 0 ) )
+		stn = stn;
+
+	if( stn == state_num )
+		stn = 0;	// all decoders gave errors
+
+	switch( dec_type )
+	{
+	case LMS_DEC: break;
+	case ILMS_DEC: 	for( int k = 0; k < codelen_org; k++ )	
+						dec_output[k] = state[stn]->ilms_soft[k] < 0;	
+					break;
+	case LCHE_DEC:	 break;
+	case ILCHE_DEC: break;
+	}
+
+	result.iter      = iter;
+	result.dec_index = stn;
+
+#else
 	int stn;
 	int iter;
 	int **matr_org = NULL;
@@ -2630,8 +2686,8 @@ DEC_RES ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alph
 
 
 			memset( syndr, 0, r_ldpc * sizeof( syndr[0]) );
-			parity = icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
-//			parity = icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
+//			parity = icheck_syndrome( matr_org, rh_org, nh_org, soft, rsoft, m, syndr );  
+			parity = icheck_syndrome( matr, rh, nh, soft, rsoft, m, syndr );  
 
 			if( parity == 0 )
 			{
@@ -2655,7 +2711,7 @@ label1:;
 
 	result.iter = iter;
 	result.dec_index = stn;
-
+#endif
 	return result;
 }
 #endif
