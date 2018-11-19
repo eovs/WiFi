@@ -1195,7 +1195,7 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 	return parity ? -iter : iter+1; 
 }
 #else
-int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta )
+int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int pre_shift)
 {
 	int   i, j, k, n;
 	int iter;
@@ -1209,8 +1209,7 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 	MS_DATA *rsoft     = st->lms_rsoft;
 	MS_DEC_STATE *prev = st->lms_dcs;		
 	MS_DEC_STATE *curr = st->lms_tmps;		
-
-
+	
 	int m  = st->m;
 	int rh = st->rh;
 	int nh = st->nh;
@@ -1218,7 +1217,12 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 	int m_ldpc = m;
 	int r_ldpc = m * rh;
 	int n_ldpc = m * nh;
-
+/*
+	if( pre_shift >= 0 )
+		beta *= (double)(1 << (pre_shift));
+	else
+		beta /= (double)(1 << (-pre_shift));
+*/
 	for( i = 0; i < n_ldpc; i++ )
 		soft[i] = y[i];
 
@@ -2101,7 +2105,7 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 }
 #else //CHINA_VERSION
 
-int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int inner_data_bits )
+int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, double alpha, double beta, int inner_data_bits, int pre_shift )
 {
 	int   i, k;
 	int iter;
@@ -2118,7 +2122,6 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 
 //	IMS_DATA ibeta = (IMS_DATA)(beta * IL_SOFT_ONE);
 	IMS_DATA ibeta = (IMS_DATA)(0.5 * IL_SOFT_ONE);// 0.4;
-
 	int dmax = (1 << (inner_data_bits-1)) - 1;
 
 	int m  = st->m;
@@ -2128,6 +2131,10 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 	int m_ldpc = m;
 	int r_ldpc = m * rh;
 	int n_ldpc = m * nh;
+
+	if( pre_shift >= 0 )
+		ibeta <<= pre_shift;
+
 
 	for( i = 0; i < n_ldpc; i++ )
 		soft[i] = y[i] << IL_SOFT_FPP;
@@ -2580,8 +2587,8 @@ DEC_RES ext_il_min_sum( int *dec_input, int *dec_output, int n_iter, double alph
 
 		switch( dec_type )
 		{
-		case LMS_DEC:   iter = lmin_sum_decod_qc_lm( instance, dec_input, dec_output, n_iter, 0.8, 0.5 ); break;
-		case ILMS_DEC:  iter = il_min_sum_decod_qc_lm( instance, dec_input, dec_word, n_iter, 0.8, 0.5, inner_data_bits ); break;
+		case LMS_DEC:   iter = lmin_sum_decod_qc_lm( instance, dec_input, dec_output, n_iter, 0.8, 0.5, 0 ); break;
+		case ILMS_DEC:  iter = il_min_sum_decod_qc_lm( instance, dec_input, dec_word, n_iter, 0.8, 0.5, inner_data_bits, 0 ); break;
 		case LCHE_DEC:  iter = lche_decod( instance, dec_input, dec_output, n_iter );		 break;
 		case ILCHE_DEC: iter = ilche_decod( instance, dec_input, dec_output, n_iter );		 break;
 		}

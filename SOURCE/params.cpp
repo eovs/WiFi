@@ -92,6 +92,7 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 		curr_line[1] = '\0';
 
 		curr_line = get_string( line, name );
+		if( curr_line == NULL ) continue;
 		
 		for( i = 0; i < nparams; i++ )
 		{

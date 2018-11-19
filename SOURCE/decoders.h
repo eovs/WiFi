@@ -116,10 +116,9 @@ typedef struct
 DEC_STATE* decod_open( int decoder_id, int mh, int nh, int M );
 int decod_init( void* st );
 void decod_close( DEC_STATE* st );
-int min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha );    
-int imin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double thr, int qbits, int dbits );    
-int lmin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta );    
-int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits );    
+//int min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha );    
+int lmin_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta, int pre_shift );    
+int il_min_sum_decod_qc_lm( DEC_STATE* st, int soft[], int decword[], int maxiter, double alpha, double beta,  int inner_data_bits, int pre_shift );    
 int lche_decod( DEC_STATE* st, int soft[], int decword[], int maxiter );    
 int ilche_decod( DEC_STATE* st, int soft[], int decword[], int maxsteps );
 
