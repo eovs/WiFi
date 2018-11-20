@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Simul", "Simul\Simul.vcxpro
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ITMO_LDPC_DEC_ENGINE", "ITMO_LDPC_DEC_ENGINE\ITMO_LDPC_DEC_ENGINE.vcxproj", "{366189E0-3B26-48A0-B5DA-DCA8168BF4D8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "simul_ext_dec", "simul_ext_dec\simul_ext_dec.vcxproj", "{F74DD871-3D07-45F4-A740-E2322A4FF74F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -45,6 +47,14 @@ Global
 		{366189E0-3B26-48A0-B5DA-DCA8168BF4D8}.Release|x64.Build.0 = Release|x64
 		{366189E0-3B26-48A0-B5DA-DCA8168BF4D8}.Release|x86.ActiveCfg = Release|Win32
 		{366189E0-3B26-48A0-B5DA-DCA8168BF4D8}.Release|x86.Build.0 = Release|Win32
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Debug|x64.ActiveCfg = Debug|x64
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Debug|x64.Build.0 = Debug|x64
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Debug|x86.ActiveCfg = Debug|Win32
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Debug|x86.Build.0 = Debug|Win32
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Release|x64.ActiveCfg = Release|x64
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Release|x64.Build.0 = Release|x64
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Release|x86.ActiveCfg = Release|Win32
+		{F74DD871-3D07-45F4-A740-E2322A4FF74F}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

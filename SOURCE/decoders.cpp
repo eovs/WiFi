@@ -1217,12 +1217,12 @@ int lmin_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps, d
 	int m_ldpc = m;
 	int r_ldpc = m * rh;
 	int n_ldpc = m * nh;
-/*
+
 	if( pre_shift >= 0 )
 		beta *= (double)(1 << (pre_shift));
 	else
 		beta /= (double)(1 << (-pre_shift));
-*/
+
 	for( i = 0; i < n_ldpc; i++ )
 		soft[i] = y[i];
 
@@ -2133,11 +2133,17 @@ int il_min_sum_decod_qc_lm( DEC_STATE* st, int y[], int decword[], int maxsteps,
 	int n_ldpc = m * nh;
 
 	if( pre_shift >= 0 )
+	{
 		ibeta <<= pre_shift;
 
-
-	for( i = 0; i < n_ldpc; i++ )
-		soft[i] = y[i] << IL_SOFT_FPP;
+		for( i = 0; i < n_ldpc; i++ )
+			soft[i] = y[i] << IL_SOFT_FPP;
+	}
+	else
+	{
+		for( i = 0; i < n_ldpc; i++ )
+			soft[i] = y[i] << (IL_SOFT_FPP - pre_shift);
+	}
 
 //	il_min_sum_reset( prev, r_ldpc, signs, rh*n_ldpc );
 	il_min_sum_reset( st );
