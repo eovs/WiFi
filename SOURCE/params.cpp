@@ -20,7 +20,8 @@ SUPPORTED_PARAMS supported_params[] =
 	{ "dec_type",   6 },  
 	{ "target_FER", 7 },
 	{ "snr",        8 },
-	{ "aux_file",   9 }
+	{ "aux_file",   9 },
+	{ "llr_limit", 10 }
 };
 
 char* get_string( char line[], char *val )
@@ -88,9 +89,11 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 			break;
 
 		curr_line = strstr( line, "//" ); 
-		curr_line[0] = '\n';
-		curr_line[1] = '\0';
-
+		if( curr_line != NULL )
+		{
+			curr_line[0] = '\n';
+			curr_line[1] = '\0';
+		}
 		curr_line = get_string( line, name );
 		if( curr_line == NULL ) continue;
 		
@@ -115,6 +118,7 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 						curr_line = get_dbl( curr_line, &params->SNR_step );	
 						params->SNR_flag  = 1; break;
 				case 9: curr_line = get_string( curr_line, params->file_name );	break;
+				case 10: curr_line = get_int( curr_line, &params->llr_limit );	break;
 				}
 
 				break;

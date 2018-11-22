@@ -15,6 +15,7 @@ typedef struct
 	double SNR_stop;
 	double SNR_step;
 	int SNR_flag;
+	int llr_limit;
 	char file_name[256];
 } SIMULATION_PARAMS;
 
