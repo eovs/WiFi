@@ -10,6 +10,7 @@ using namespace std;
 
 #define my_limit( x, lower, upper ) ((x) < (lower) ? (lower) : ((x) > (upper) ? (upper) : (x)))
 
+
 typedef struct  
 {
 	int min1; 
@@ -190,7 +191,7 @@ static itmo_ldpc_dec_engine_t::ret_status il_min_sum_iterate( ILMS_STATE* st, in
 					int prev_c2v_abs = prev[stateOffset+n].pos == k ? prev[stateOffset+n].min2 : prev[stateOffset+n].min1;
 					int curr_v2c_val = soft[k*m_ldpc + (circ + n) % m_ldpc] - (prev_c2v_sgn ? -prev_c2v_abs : prev_c2v_abs);
 					int curr_v2c_abs = (curr_v2c_val < 0.0 ? -curr_v2c_val : curr_v2c_val) - ibeta;  
-					
+
 					buffer[n] = curr_v2c_val;
 					signs[memOffset+n] = curr_v2c_val < 0;
 					iprocess_check_node( &curr[n], signs[memOffset+n], my_limit(curr_v2c_abs, 0, dmax), k );
@@ -312,8 +313,10 @@ void  itmo_ldpc_dec_engine_t::push(const std::vector<int>&in)
 	if( !is_init )	
 		return;
 
+	int dmax = (1 << (llr_bits-1)) - 1;
+
 	for( int i = 0; i < in.size(); i++ )
-		((ILMS_STATE*)state)->soft[i] = in[i] << IL_SOFT_FPP; 
+		((ILMS_STATE*)state)->soft[i] = my_limit( in[i], -dmax, dmax ) << IL_SOFT_FPP; 
 }
 
 itmo_ldpc_dec_engine_t::ret_status  itmo_ldpc_dec_engine_t::iterate()

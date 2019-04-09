@@ -18,7 +18,7 @@ static int findQ( int q )
                 
 }
 
-QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int n, int m, int ns, int out_type )
+QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, int Q, int n, int m, int ns, int out_type )
 {
     QAM_DEMODULATOR_STATE* st;
     
@@ -28,7 +28,6 @@ QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int 
     if( !st ) return NULL;
     
     st->T = T;
-    st->sigma = sigma;
     st->Q = Q;
     st->n = n;
     st->m = m;
@@ -548,12 +547,12 @@ PAM_ELEMENT t256_4[] =
  	{ 1,-1}, { 1,-1}, {-1, 3}, {-1, 3}, { 1,-5}, { 1,-5}, {-1, 7}, {-1, 7}
 };
 
-void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] )
+void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[], double sigma )
 {
     int ns = st->ns * 2;
 	int m = st->m / 2;
     int n = st->n;
-    double sigma = st->sigma;
+    //double sigma = st->sigma;
 	double V = sigma * sigma;
 	double B = -4/V;
 	int* ix = st->ix;

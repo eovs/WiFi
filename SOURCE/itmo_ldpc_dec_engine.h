@@ -20,7 +20,7 @@ class itmo_ldpc_dec_engine_t
   
 	private:
 	    bool is_init = false;
-		int llr_bits = 7;
+		int llr_bits = 5;
 		void *state;
 };
 #endif _DECODER_H_

@@ -77,7 +77,6 @@ typedef struct
 {
     
     double  T;
-    double  sigma;
     int   Q;      //QAM
     int     n;      // code length
     int     m;      // log2( QAM )
@@ -102,10 +101,10 @@ QAM_MODULATOR_STATE* QAM_modulator_open( int Q, int L, int m );
 void QAM_modulator_close(QAM_MODULATOR_STATE* st);
 void QAM_modulator( QAM_MODULATOR_STATE *qam_mod_state, int *in, int *out[2]  );
 
-QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, double sigma, int Q, int n, int m, int ns, int out_type );
+QAM_DEMODULATOR_STATE* QAM_demodulator_open( double T, int Q, int n, int m, int ns, int out_type );
 void QAM_demodulator_close(QAM_DEMODULATOR_STATE* st );
 void Demodulate( QAM_DEMODULATOR_STATE* st, double *x[2], double pRes[], double sigma );
 
-void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[] );
+void PAM_Demodulate( QAM_DEMODULATOR_STATE* st, double pMod[], double pRes[], double sigma );
 
 #endif //_MODULATION_H_
