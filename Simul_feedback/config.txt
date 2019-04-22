@@ -1,0 +1,24 @@
+cfg        4		// for cfg=0 a set of code matrices should be placed in the aux_file 
+n_pass     1000000      // number of passes
+n_iter     10           // number of ldpc iterations
+n_event    100           // number of frame errors
+llr_bits   7//6            // size of quantized llr 
+llr_limit  31		// max possible value of llr
+code_M     81           // parameter M of ldpc code
+dec_type   0            // decoder type
+target_FER 0.0001       // target frame error 
+//snr        4.0 5.00 0.25 // SNR: start stop step
+
+
+
+code: 12 x 24 x 81
+Eb/No = 3.000000, sigma = 1.119361 FER: 1.00000000
+Eb/No = 3.250000, sigma = 1.087602 FER: 0.93457944
+Eb/No = 3.500000, sigma = 1.056745 FER: 0.79365079
+Eb/No = 3.750000, sigma = 1.026763 FER: 0.38910506
+Eb/No = 4.000000, sigma = 0.997631 FER: 0.11098779
+Eb/No = 4.250000, sigma = 0.969326 FER: 0.02091613
+Eb/No = 4.500000, sigma = 0.941825 FER: 0.00162188
+
+SNR:  3.000000 3.250000 3.500000 3.750000 4.000000 4.250000 4.500000 
+FERR: 1.000000 0.934579 0.793651 0.389105 0.110988 0.020916 0.001622 
