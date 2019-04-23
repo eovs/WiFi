@@ -17,6 +17,7 @@ typedef struct
 	int SNR_flag;
 	int llr_limit;
 	char file_name[256];
+	int n_attempts;
 } SIMULATION_PARAMS;
 
 int set_params( char *fileName, SIMULATION_PARAMS *params );
