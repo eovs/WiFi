@@ -1,14 +1,12 @@
 cfg        9		// for cfg=0 a set of code matrices should be placed in the aux_file 
 n_pass     10000      // number of passes
 n_iter     10           // number of ldpc iterations
-n_event    100           // number of frame errors
 llr_bits   7//6            // size of quantized llr 
 llr_limit  31		// max possible value of llr
 code_M     81           // parameter M of ldpc code
 dec_type   0            // decoder type
-target_FER 0.0001       // target frame error 
-//snr        4.0 5.00 0.25 // SNR: start stop step
-
+//snr        6.0 12.00 0.25 // SNR: start stop step
+n_att      10
 
 // original
 code: 12 x 24 x 81

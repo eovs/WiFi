@@ -21,7 +21,8 @@ SUPPORTED_PARAMS supported_params[] =
 	{ "target_FER", 7 },
 	{ "snr",        8 },
 	{ "aux_file",   9 },
-	{ "llr_limit", 10 }
+	{ "llr_limit", 10 },
+	{ "n_att",     11 }
 };
 
 char* get_string( char line[], char *val )
@@ -119,6 +120,7 @@ int set_params( char *fileName, SIMULATION_PARAMS *params )
 						params->SNR_flag  = 1; break;
 				case 9: curr_line = get_string( curr_line, params->file_name );	break;
 				case 10: curr_line = get_int( curr_line, &params->llr_limit );	break;
+				case 11: curr_line = get_int( curr_line, &params->n_attempts );	break;
 				}
 
 				break;
